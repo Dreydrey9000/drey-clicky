@@ -8,3 +8,5 @@ Own the smallest change. Keep Jax execution behind the MCP task interface, never
 Commands: npm ci; npm run typecheck; npm test; npm run build; npm run lint. Native commands are in docs/DREY-CLICKY.md. Build directories stay outside synced Desktop/Documents folders. One heavyweight build at a time on constrained disks.
 
 Bound improvement passes, record measured results, and do not claim VoiceOS parity or end-to-end live validation from mocked tests. Design changes await the user's theme choice. Every relevant change updates the README-linked architecture diagram and docs.
+
+Key modules: `agent/src/jaxRunner.ts` owns bounded CLI execution and cancellation; `jaxMcp.ts` owns the client/receipt interface; `jaxServer.ts` exposes the local task tool; `taskContext.ts` validates/serializes evidence; `workflowSkills.ts` loads trusted bundled guidance; `jaxHistory.ts` stores private local receipts. Public verification is in docs/VERIFICATION.md. Keep local private raw receipts outside the repository.
