@@ -19,7 +19,8 @@ log="$out/tour.log"
 rm -f "$log"
 
 demo_home=$(mktemp -d -t openclicky-tour-home)
-CFFIXED_USER_HOME="$demo_home" "$app/Contents/MacOS/OpenClicky" --openclicky-ui-tour "$log" >"$out/app-stdout.log" 2>&1 &
+app_executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")
+CFFIXED_USER_HOME="$demo_home" "$app/Contents/MacOS/$app_executable" --openclicky-ui-tour "$log" >"$out/app-stdout.log" 2>&1 &
 app_pid=$!
 trap 'kill $app_pid 2>/dev/null || true; rm -rf "$demo_home"' EXIT
 

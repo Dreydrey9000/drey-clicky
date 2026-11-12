@@ -70,3 +70,12 @@ The work engine's subprocess has a three-minute budget and twenty tool turns, wi
 Errors name the next action: missing Jax executable, wrong MCP tool, unavailable provider, invalid context or an uncertain timeout. Do not “fix” them by adding retries to actions. The fork disables upstream automatic updates and has its own bundle and settings. Its analytics remain disabled without an explicit PostHog key.
 
 The local app also provides `--drey-clicky-diagnostics`: a read-only JSON permission/CLI check. Microphone status values use AVAuthorizationStatus (0 not determined, 1 restricted, 2 denied, 3 authorized); Speech Recognition uses SFSpeechRecognizerAuthorizationStatus (0 not determined, 1 denied, 2 restricted, 3 authorized). Diagnostic preflight and the installed app’s first-run setup must both be checked.
+
+
+For a first-run component review, quit the normal app and run the existing debug capture helper with `OPENCLICKY_TOUR_ONLY=firstrun`. It reads the bundle executable name, uses a disposable demo home, captures only its own windows, and removes that demo home afterward:
+
+```sh
+OPENCLICKY_TOUR_ONLY=firstrun bash macos/OpenClicky/scripts/capture-ui-tour.sh "/absolute/path/Drey Clicky.app" "/absolute/path/private-ui-report"
+```
+
+Reopen the normal app afterward. These are labeled component fixtures; they do not grant Mac permissions or complete a live spoken task.

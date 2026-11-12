@@ -42,4 +42,6 @@ Private reports retain original failures and final receipts. No personal configu
 
 ## GitHub Actions
 
-The earlier [four-platform run](https://github.com/Dreydrey9000/drey-clicky/actions/runs/43168152681) passed on the initial implementation. The continuation changes require a new run; its final result will be recorded after the source push.
+All four jobs passed on runtime-code revision `e19980f65787a604af2ae93bb1d8f759861b06c5`: [run 43174751397](https://github.com/Dreydrey9000/drey-clicky/actions/runs/43174751397) — TypeScript, macOS, Linux and Windows. The earlier continuation run had an inherited Windows voice-timing assertion failure; its original receipt is retained. No Windows product behavior was changed to obtain the later passing result.
+
+The subsequent handoff commit changes documentation and makes the native UI-capture script resolve CFBundleExecutable from the app bundle, supporting the renamed product. That script completed ten first-run component captures under a disposable demo home; the welcome and talk cards were inspected for readable, unclipped copy. Those fixture captures do not establish live microphone or Mac permission readiness. Application runtime source is unchanged from the passing CI revision.
