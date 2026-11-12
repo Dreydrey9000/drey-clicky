@@ -164,6 +164,9 @@ final class FirstRunTourController: ObservableObject {
             .dropFirst()
             .sink { [weak self] _ in DispatchQueue.main.async { self?.publish() } }
             .store(in: &cancellables)
+        VoiceAppConnections.shared.objectWillChange.sink { [weak self] _ in
+            DispatchQueue.main.async { self?.publish() }
+        }.store(in: &cancellables)
         companionManager.dictationSettings.$dictationKey
             .dropFirst()
             .sink { [weak self] _ in DispatchQueue.main.async { self?.publish() } }
@@ -224,7 +227,7 @@ final class FirstRunTourController: ObservableObject {
 
     /// The offline engine needs Speech Recognition, which macOS asks for on first use.
     private var speechNeedsAllowing: Bool {
-        companionManager?.dictationSettings.engine == .offline
+        !VoiceAppConnections.shared.usesExternalVoice && companionManager?.dictationSettings.engine == .offline
             && AppleSpeechTranscriptionProvider().requiresSpeechRecognitionPermission
             && SFSpeechRecognizer.authorizationStatus() == .notDetermined
     }
@@ -372,7 +375,7 @@ final class FirstRunTourController: ObservableObject {
 
     private func advance() {
         switch step {
-        case .meet: go(to: .dictate)
+        case .meet: go(to: VoiceAppConnections.shared.usesExternalVoice ? .talk : .dictate)
         case .dictate: go(to: .talk)
         case .talk: go(to: .act)
         case .act: go(to: needsFreeAccountNote ? .account : .done)
@@ -397,6 +400,7 @@ final class FirstRunTourController: ObservableObject {
         isShowingDemo = false
         switch newStep {
         case .meet:
+            UserDefaults.standard.set(ConnectorUpdate.version, forKey: "dreyClicky.update.seen")
             companionManager?.hasCompletedOnboarding = true
             companionManager?.introducePointerForTour()
             // Still after the hello? The pointer goes and points at "let’s go".
@@ -407,15 +411,15 @@ final class FirstRunTourController: ObservableObject {
             // Drey Clicky uses the existing Jax/Codex account. The welcome never creates an
             // upstream account; account setup remains an explicit Settings action.
         case .dictate:
-            if companionManager?.dictationSettings.dictationKey == .fn && !speechNeedsAllowing {
+            if !VoiceAppConnections.shared.usesExternalVoice && companionManager?.dictationSettings.dictationKey == .fn && !speechNeedsAllowing {
                 companionManager?.recordedVoice.play(.tourDictate)
             }
         case .talk:
             // Wait for the person's hotkey request; do not send their screen through the old
             // backend demonstration automatically during the new Jax/Codex welcome.
-            companionManager?.recordedVoice.play(.tourTalk)
+            if !VoiceAppConnections.shared.usesExternalVoice { companionManager?.recordedVoice.play(.tourTalk) }
         case .act:
-            if OpenClickyConfiguration.isConfigured { companionManager?.recordedVoice.play(.tourAct) }
+            if OpenClickyConfiguration.isConfigured && !VoiceAppConnections.shared.usesExternalVoice { companionManager?.recordedVoice.play(.tourAct) }
         case .account:
             fieldText = ""
             if accountCardAsksForEmail {
@@ -484,6 +488,7 @@ final class FirstRunTourController: ObservableObject {
         publish()
         // Setup is done: the models can download in the background now.
         companionManager?.startAutomaticModelDownloads(tourIsFinished: true)
+        companionManager?.presentConnectorUpdateIfNeeded()
     }
 
     // MARK: The card's buttons
@@ -492,8 +497,13 @@ final class FirstRunTourController: ObservableObject {
         guard let step, let companionManager else { return }
         switch step {
         case .meet:
-            go(to: .dictate)
+            advance()
         case .dictate:
+            if VoiceAppConnections.shared.usesExternalVoice {
+                go(to: .talk)
+                companionManager.openTextComposer()
+                return
+            }
             if speechNeedsAllowing {
                 SFSpeechRecognizer.requestAuthorization { _ in
                     DispatchQueue.main.async { [weak self] in self?.publish() }
@@ -520,6 +530,10 @@ final class FirstRunTourController: ObservableObject {
                 advance()
             }
         case .talk, .act:
+            if VoiceAppConnections.shared.usesExternalVoice {
+                companionManager.openTextComposer()
+                return
+            }
             // Tried it (or would rather not): "next" moves on, as the success would.
             guard !OpenClickyConfiguration.isConfigured else { advance(); return }
             if OpenClickyAuthSession.shared.accountsOpen != false {
@@ -593,6 +607,9 @@ final class FirstRunTourController: ObservableObject {
     /// What to try on the task step. The agent (your own keys) can work in apps; a free account
     /// has the quick actions (folders, apps, sites, volume).
     private var taskExamples: String {
+        if VoiceAppConnections.shared.usesExternalVoice {
+            return "open the prompt with \(VoiceAppConnections.shared.promptShortcut.label), dictate “open Calculator” using your voice app, then press Return."
+        }
         if AccountCapabilities.current().usesAgent {
             return "hold control + option and say “add a note to my notes: buy milk”, or “organize my downloads folder so it’s easier to find things”."
         }
@@ -601,7 +618,7 @@ final class FirstRunTourController: ObservableObject {
 
     /// fn is the dictation key but macOS still opens the emoji picker with it.
     private var needsFnFreed: Bool {
-        companionManager?.dictationSettings.dictationKey == .fn && !FnKeyGuard.isFnFree
+        !VoiceAppConnections.shared.usesExternalVoice && companionManager?.dictationSettings.dictationKey == .fn && !FnKeyGuard.isFnFree
     }
 
     // MARK: The card
@@ -618,9 +635,13 @@ final class FirstRunTourController: ObservableObject {
         case .meet:
             return FirstRunTourCard(
                 step: .meet, title: "meet Drey Clicky",
-                detail: "hold Control + Option to ask Jax about your screen. hear replies; see details in the card.",
+                detail: "ask Jax about your screen. optional Wispr Flow and Omi voice typing is in Settings → Clicky.",
                 symbol: "hand.wave.fill",
                 primaryTitle: "let’s go", secondaryTitle: "skip tour")
+        case .dictate where VoiceAppConnections.shared.usesExternalVoice:
+            return FirstRunTourCard(step: .dictate, title: "use your voice app",
+                detail: "open the prompt with \(VoiceAppConnections.shared.promptShortcut.label), dictate using \(VoiceAppConnections.shared.enabledNames), then press Return.",
+                symbol: "waveform", primaryTitle: "open prompt", secondaryTitle: "skip")
         case .dictate where speechNeedsAllowing:
             return FirstRunTourCard(
                 step: .dictate, title: "first, let me use speech recognition",
@@ -649,6 +670,10 @@ final class FirstRunTourController: ObservableObject {
                 step: .account, title: "you’re on a free account",
                 detail: "it has a limited number of free credits. if you already pay for openai, claude or another ai, add that key in settings and use it right here.",
                 symbol: "sparkles", primaryTitle: "add my key", secondaryTitle: "continue")
+        case .talk where VoiceAppConnections.shared.usesExternalVoice:
+            return FirstRunTourCard(step: .talk, title: "ask using your voice app",
+                detail: "press \(VoiceAppConnections.shared.promptShortcut.label), dictate with \(VoiceAppConnections.shared.enabledNames), then Return. Clicky answers aloud.",
+                symbol: "waveform", status: status, statusIsGood: statusIsGood, primaryTitle: "open prompt", secondaryTitle: "skip")
         case .talk where isShowingDemo:
             return FirstRunTourCard(
                 step: .talk, title: "watch this",
@@ -662,6 +687,9 @@ final class FirstRunTourController: ObservableObject {
                     : "about anything on your screen, out loud, and i’ll point at it. add your email to switch it on, free.",
                 keys: ["⌃", "⌥"], status: status, statusIsGood: statusIsGood,
                 primaryTitle: canAsk ? "next" : "add email", secondaryTitle: "skip")
+        case .act where VoiceAppConnections.shared.usesExternalVoice:
+            return FirstRunTourCard(step: .act, title: "hand Jax a task", detail: taskExamples,
+                symbol: "sparkles", status: status, statusIsGood: statusIsGood, primaryTitle: "open prompt", secondaryTitle: "skip")
         case .act:
             return FirstRunTourCard(
                 step: .act, title: canAsk ? "hand me a task" : "i can do things for you too",
@@ -677,7 +705,7 @@ final class FirstRunTourController: ObservableObject {
         case .openAtLogin:
             return FirstRunTourCard(
                 step: .openAtLogin, title: "open me when your mac starts?",
-                detail: "then \(key) works from the moment you log in, without opening me first.",
+                detail: VoiceAppConnections.shared.usesExternalVoice ? "then Clicky's prompt shortcut works after login. your voice apps keep their own startup settings." : "then \(key) works from the moment you log in, without opening me first.",
                 symbol: "power", status: status, statusIsGood: statusIsGood,
                 primaryTitle: statusIsGood ? nil : "yes, open at login", secondaryTitle: statusIsGood ? "close" : "not now")
         }

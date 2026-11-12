@@ -1838,9 +1838,9 @@ struct NotchComposerView: View {
                 .foregroundColor(DS.HUD.pointer)
             NotchComposerTextField(
                 text: $requestText,
-                placeholder: companionManager.notchHUDManager.composerThreadId == nil ? "ask clicky anything about your screen…" : "follow up with the agent…",
+                placeholder: companionManager.notchHUDManager.composerThreadId == nil ? VoiceAppConnections.shared.promptHint : "follow up with the agent…",
                 onSubmit: submitRequest,
-                onEscape: { companionManager.notchHUDManager.closeTextComposer() }
+                onEscape: { companionManager.cancelTextComposer() }
             )
             Text(requestText.isEmpty ? "esc" : "↩ send")
                 .font(.system(size: 9.5, weight: .medium, design: .monospaced))

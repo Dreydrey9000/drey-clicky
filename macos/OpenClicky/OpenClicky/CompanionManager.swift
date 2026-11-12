@@ -217,6 +217,11 @@ final class CompanionManager: ObservableObject {
     }
 
     func setAlwaysListening(_ enabled: Bool) {
+        if enabled && globalPushToTalkShortcutMonitor.externalVoiceInput {
+            isAlwaysListening = false
+            showQuietNotice("Your voice app handles input. Turn voice app connectors off before using Clicky's hands-free mode.")
+            return
+        }
         isAlwaysListening = enabled
         if usesRealtimeVoice {
             stopStandardHandsFree()
@@ -510,6 +515,7 @@ final class CompanionManager: ObservableObject {
     func submitTextToAgent(_ text: String, threadId: String? = nil, startsNewThread: Bool = false) {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty, OpenClickyConfiguration.isConfigured else { return }
+        let composerContext = takeComposerContext()
         // An account has no agent: the backend would refuse it with not_on_plan, so say that plainly.
         guard OpenClickyConfiguration.usesJax || AccountCapabilities.current().usesAgent else {
             speakWithSystemVoice(AccountLimitError.notOnPlan.message)
@@ -520,9 +526,10 @@ final class CompanionManager: ObservableObject {
         lastTranscript = trimmedText
         currentResponseTask = Task {
             voiceState = .processing
-            let screenCaptures = (try? await CompanionScreenCaptureUtility.captureAllScreensAsJPEG()) ?? []
+            let screenCaptures = if let composerContext { composerContext.screens }
+                else { (try? await CompanionScreenCaptureUtility.captureAllScreensAsJPEG()) ?? [] }
             do {
-                try await runOpenClickyAgentLane(transcript: trimmedText, screenCaptures: screenCaptures)
+                try await runOpenClickyAgentLane(transcript: trimmedText, screenCaptures: screenCaptures, composerContext: composerContext)
             } catch is CancellationError {
             } catch {
                 print("⚠️ Agent follow-up error: \(error)")
@@ -926,6 +933,8 @@ final class CompanionManager: ObservableObject {
         if hasCompletedOnboarding && allPermissionsGranted {
             warmUpRealtimeVoice()
         }
+        isCompanionStarted = true
+        presentConnectorUpdateIfNeeded()
     }
 
     func clearDetectedElementLocation() {
@@ -935,6 +944,10 @@ final class CompanionManager: ObservableObject {
     }
 
     func stop() {
+        isCompanionStarted = false
+        voiceConnectionsCancellable?.cancel()
+        composerContextTask?.cancel()
+        pendingComposerContext = nil
         orbPanelManager.stop()
         clipboardHistoryMonitor.stop()
         permissionPromptController.stop()
@@ -1007,6 +1020,13 @@ final class CompanionManager: ObservableObject {
         }
 
         permissionPromptController.update(with: permissionStatus)
+        presentConnectorUpdateIfNeeded()
+    }
+
+    func presentConnectorUpdateIfNeeded() {
+        guard isCompanionStarted, firstRunTour.isFinished,
+              ConnectorUpdate.consumeIfReady(defaults: .standard, permissionsReady: allPermissionsGranted, idle: voiceState == .idle && agentActivityText == nil) else { return }
+        showQuietNotice(ConnectorUpdate.text)
     }
 
     /// Wires the permission cards to the island: the drag helper they open, and the one request
@@ -1266,6 +1286,10 @@ final class CompanionManager: ObservableObject {
     }()
 
     private var dictationKeyCancellable: AnyCancellable?
+    private var voiceConnectionsCancellable: AnyCancellable?
+    private var composerContextTask: Task<Void, Never>?
+    private var pendingComposerContext: ComposerScreenContext?
+    private var isCompanionStarted = false
     private lazy var clipboardHistoryMonitor = ClipboardHistoryMonitor(settings: dictationSettings, takeStore: dictationTakeStore) { [weak self] in
         self?.dictationTakeController.historyDidChange()
     }
@@ -1413,6 +1437,19 @@ final class CompanionManager: ObservableObject {
         dictationKeyCancellable = dictationSettings.$dictationKey.sink { [weak self] key in
             self?.globalPushToTalkShortcutMonitor.dictationKey = key
         }
+        let connections = VoiceAppConnections.shared
+        voiceConnectionsCancellable = Publishers.CombineLatest3(connections.$wisprFlow, connections.$omi, connections.$promptShortcut)
+            .sink { [weak self] values in
+                guard let self else { return }
+                let (flow, omi, shortcut) = values
+                self.objectWillChange.send()
+                self.globalPushToTalkShortcutMonitor.externalVoiceInput = flow || omi
+                self.globalPushToTalkShortcutMonitor.connectorPromptShortcut = shortcut
+                if flow || omi {
+                    if self.isAlwaysListening { self.setAlwaysListening(false) }
+                    if self.dictationTakeController.isTakeInProgress { self.dictationTakeController.handle(.escapePressed) }
+                }
+            }
         orbPanelManager.onOrbClicked = { [weak self] in self?.dictationTakeController.orbClicked() }
         orbPanelManager.start()
         // The microphone chosen in settings is the one both ways in hear with: fn dictation and the
@@ -1472,10 +1509,35 @@ final class CompanionManager: ObservableObject {
     }
 
     /// Control tapped twice: the notch island opens a one-line text field.
-    func openTextComposer() {
-        notchHUDManager.openTextComposer()
+    func openTextComposer(threadId: String? = nil) {
+        composerContextTask?.cancel()
+        pendingComposerContext = nil
+        // Save the source selection before a dictation app or our text field changes focus.
+        let selection = SelectedTextReader.currentSelection()
+        composerContextTask = Task { [weak self] in
+            let screens = (try? await CompanionScreenCaptureUtility.captureAllScreensAsJPEG()) ?? []
+            guard !Task.isCancelled, let self else { return }
+            self.pendingComposerContext = ComposerScreenContext(screens: screens, selectedText: selection, capturedAt: Date())
+            self.notchHUDManager.openTextComposer(threadId: threadId)
+        }
         // Typing takes a few seconds: time enough to warm the on-device model for the local rung.
         if dictationSettings.answerSimpleRequestsOnThisMac { localAskRung?.model.prewarm() }
+    }
+
+    func cancelTextComposer() {
+        composerContextTask?.cancel()
+        pendingComposerContext = nil
+        notchHUDManager.closeTextComposer()
+    }
+
+    private func takeComposerContext() -> ComposerScreenContext? {
+        defer { pendingComposerContext = nil }
+        guard let context = pendingComposerContext else { return nil }
+        guard context.isFresh(at: Date()) else {
+            showQuietNotice("The saved selection expired; using the current screen.")
+            return nil
+        }
+        return context
     }
 
     /// A typed request goes where a spoken one would: the Realtime session (it answers out loud,
@@ -1483,6 +1545,7 @@ final class CompanionManager: ObservableObject {
     func submitTypedRequest(_ text: String) {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
+        let composerContext = takeComposerContext()
         transientHideTask?.cancel()
         transientHideTask = nil
         if !isClickyCursorEnabled && !isOverlayVisible {
@@ -1498,7 +1561,7 @@ final class CompanionManager: ObservableObject {
         print("⌨️ Typed request: \(trimmedText)")
 
         guard usesRealtimeVoice else {
-            sendTranscriptToClaudeWithScreenshot(transcript: trimmedText)
+            sendTranscriptToClaudeWithScreenshot(transcript: trimmedText, composerContext: composerContext)
             return
         }
         voiceState = .processing
@@ -1710,7 +1773,7 @@ final class CompanionManager: ObservableObject {
     /// the spinner/processing state until TTS audio begins playing.
     /// Claude's response may include a [POINT:x,y:label] tag which triggers
     /// the buddy to fly to that element on screen.
-    private func sendTranscriptToClaudeWithScreenshot(transcript: String, isGuidedStepContinuation: Bool = false) {
+    private func sendTranscriptToClaudeWithScreenshot(transcript: String, isGuidedStepContinuation: Bool = false, composerContext: ComposerScreenContext? = nil) {
         interruptCurrentAnswer(includingAgentWork: false)
         // Anything the person asks starts afresh; only OpenClicky's own "what's next?" continues a guide.
         if !isGuidedStepContinuation {
@@ -1807,7 +1870,8 @@ final class CompanionManager: ObservableObject {
                 // Capture all connected screens so the AI has full context (an account sends at most two)
                 let allScreenCaptures: [CompanionScreenCapture]
                 do {
-                    allScreenCaptures = try await CompanionScreenCaptureUtility.captureAllScreensAsJPEG()
+                    if let composerContext { allScreenCaptures = composerContext.screens }
+                    else { allScreenCaptures = try await CompanionScreenCaptureUtility.captureAllScreensAsJPEG() }
                 } catch {
                     // Told apart from a backend failure, so the person is sent to the right place.
                     throw AskScreenCaptureError(underlyingError: error)
@@ -1828,7 +1892,7 @@ final class CompanionManager: ObservableObject {
                     guard !Task.isCancelled else { return }
                     print("🧭 OpenClicky gate: \(lane)")
                     if lane == "agent" {
-                        try await runOpenClickyAgentLane(transcript: transcript, screenCaptures: screenCaptures)
+                        try await runOpenClickyAgentLane(transcript: transcript, screenCaptures: screenCaptures, composerContext: composerContext)
                         if !Task.isCancelled {
                             isAskInFlight = false
                             voiceState = .idle
@@ -2429,8 +2493,8 @@ final class CompanionManager: ObservableObject {
     /// Hands the request to a Codex thread through the `openclicky` CLI, attaching the cursor
     /// screen as image context, then speaks the agent's final message. The spinner stays up for
     /// the whole run; milestones are published to the panel via `agentActivityText`.
-    private func runOpenClickyAgentLane(transcript: String, screenCaptures: [CompanionScreenCapture]) async throws {
-        let spokenText = try await performAgentTask(transcript: transcript, screenCaptures: screenCaptures)
+    private func runOpenClickyAgentLane(transcript: String, screenCaptures: [CompanionScreenCapture], composerContext: ComposerScreenContext? = nil) async throws {
+        let spokenText = try await performAgentTask(transcript: transcript, screenCaptures: screenCaptures, composerContext: composerContext)
         guard !Task.isCancelled else { return }
         await speakWholeReply(spokenText)
     }
@@ -2492,9 +2556,9 @@ final class CompanionManager: ObservableObject {
     /// The agent lane core, shared by the classic voice path and the Realtime `send_to_agent` tool:
     /// attach the cursor screen, run the Codex thread (resumed across turns), publish milestones and
     /// the result card, and return the sentence to speak.
-    private func performAgentTask(transcript: String, screenCaptures: [CompanionScreenCapture]) async throws -> String {
+    private func performAgentTask(transcript: String, screenCaptures: [CompanionScreenCapture], composerContext: ComposerScreenContext? = nil) async throws -> String {
         var screenshotPath: String?
-        let selectedText = SelectedTextReader.currentSelection()
+        let selectedText = composerContext != nil ? composerContext?.selectedText : SelectedTextReader.currentSelection()
         defer { if let screenshotPath { try? FileManager.default.removeItem(atPath: screenshotPath) } }
         if let cursorScreenCapture = screenCaptures.first(where: { $0.isCursorScreen }) ?? screenCaptures.first {
             let screenshotURL = FileManager.default.temporaryDirectory

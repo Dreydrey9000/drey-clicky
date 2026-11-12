@@ -68,6 +68,9 @@ struct CompanionShortcutRecognizer {
 
     private(set) var isTalkHeld = false
     private(set) var isDictationKeyHeld = false
+    var externalVoiceInput = false { didSet { if externalVoiceInput != oldValue { reset() } } }
+    var connectorPromptShortcut: ConnectorPromptShortcut = .commandShiftSpace { didSet { if connectorPromptShortcut != oldValue { externalPromptHeld = false } } }
+    private var externalPromptHeld = false
 
     /// The flags of the last event as the companion shortcuts read them (see `companionFlags`).
     private var previousCompanionFlags: NSEvent.ModifierFlags = []
@@ -95,8 +98,10 @@ struct CompanionShortcutRecognizer {
     /// already down from its other-side twin when the key went down.
     private var twinModifierWasDownAtPress = false
 
-    init(dictationKey: DictationHotkey = .fn) {
+    init(dictationKey: DictationHotkey = .fn, externalVoiceInput: Bool = false, connectorPromptShortcut: ConnectorPromptShortcut = .commandShiftSpace) {
         self.dictationKey = dictationKey
+        self.externalVoiceInput = externalVoiceInput
+        self.connectorPromptShortcut = connectorPromptShortcut
     }
 
     /// Feeds one event; returns the shortcut events it completes, in order.
@@ -106,6 +111,18 @@ struct CompanionShortcutRecognizer {
         modifierFlags rawModifierFlags: NSEvent.ModifierFlags,
         at time: TimeInterval
     ) -> [CompanionShortcutEvent] {
+        if externalVoiceInput {
+            let flags = rawModifierFlags.intersection(Self.trackedModifierFlags)
+            if eventKind == .keyUp && keyCode == connectorPromptShortcut.keyCode { externalPromptHeld = false }
+            if eventKind == .flagsChanged && flags != connectorPromptShortcut.modifiers { externalPromptHeld = false }
+            if eventKind == .keyDown && keyCode == Self.escapeKeyCode { return [.escapePressed] }
+            if eventKind == .keyDown && keyCode == connectorPromptShortcut.keyCode && flags == connectorPromptShortcut.modifiers && !externalPromptHeld {
+                externalPromptHeld = true
+                return [.textComposerRequested]
+            }
+            // Flow/Omi own voice capture. In particular, Ctrl alone and Fn are left alone.
+            return []
+        }
         switch eventKind {
         case .keyDown, .keyUp:
             // With control held, macOS follows each release of fn with a key down and up of the
@@ -273,7 +290,8 @@ struct CompanionShortcutRecognizer {
     }
 
     mutating func reset() {
-        self = CompanionShortcutRecognizer(dictationKey: dictationKey)
+        externalPromptHeld = false
+        self = CompanionShortcutRecognizer(dictationKey: dictationKey, externalVoiceInput: externalVoiceInput, connectorPromptShortcut: connectorPromptShortcut)
     }
 }
 

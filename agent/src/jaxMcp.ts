@@ -15,7 +15,9 @@ export function jaxMcpCommand(env: NodeJS.ProcessEnv = process.env): string[] {
 export async function withJaxClient<T>(operation: (client: Client) => Promise<T>, signal?: AbortSignal): Promise<T> {
   const [command, ...args] = jaxMcpCommand();
   const env: Record<string, string> = {};
-  if (process.env.DREY_CLICKY_JAX_BIN) env.DREY_CLICKY_JAX_BIN = process.env.DREY_CLICKY_JAX_BIN;
+  for (const key of ["DREY_CLICKY_JAX_BIN", "DREY_CLICKY_HERMES_ROOT", "DREY_CLICKY_JAX_PROFILE", "DREY_CLICKY_APPROVAL_UI"]) {
+    if (process.env[key]) env[key] = process.env[key];
+  }
   const transport = new StdioClientTransport({ command, args, env, stderr: "pipe" });
   // stderr is drained without echoing private diagnostics into UI event streams.
   transport.stderr?.on("data", () => undefined);
@@ -43,7 +45,7 @@ export async function runJaxMcp(input: JaxTask, options: { signal?: AbortSignal;
     const text = Array.isArray(reply.content) ? reply.content.filter(item => item.type === "text").map(item => item.text).join("\n") : "";
     if (reply.isError) throw new Error(text || "Jax failed. Check the conversation before retrying.");
     const result = reply.structuredContent as Record<string, unknown> | undefined;
-    if (!result || result.engine !== "jax" || result.status !== "completed" || typeof result.turnId !== "string" || typeof result.finalMessage !== "string" || !result.finalMessage.trim() || typeof result.spokenSummary !== "string" || typeof result.threadId !== "string" || !/^jax:[a-zA-Z0-9-]{1,80}$/.test(result.threadId) || !Array.isArray(result.artifacts) || !result.artifacts.every(item => typeof item === "string")) throw new Error("Jax returned an invalid completion receipt. No automatic retry was made.");
+    if (!result || result.engine !== "jax" || !["completed", "blocked"].includes(String(result.status)) || typeof result.turnId !== "string" || typeof result.finalMessage !== "string" || !result.finalMessage.trim() || typeof result.spokenSummary !== "string" || typeof result.threadId !== "string" || !/^jax:[a-zA-Z0-9-]{1,80}$/.test(result.threadId) || !Array.isArray(result.artifacts) || !result.artifacts.every(item => typeof item === "string")) throw new Error("Jax returned an invalid completion receipt. No automatic retry was made.");
     return result as unknown as JaxResult;
   }, options.signal);
 }

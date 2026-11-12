@@ -21,6 +21,17 @@ final class GlobalPushToTalkShortcutMonitor: ObservableObject {
 
     /// Recognises all four shortcuts from the tap's modifier and key events (main thread only).
     private var shortcutRecognizer = CompanionShortcutRecognizer()
+    var externalVoiceInput = false {
+        didSet {
+            if externalVoiceInput != oldValue && (shortcutRecognizer.isTalkHeld || shortcutRecognizer.isDictationKeyHeld) {
+                companionShortcutPublisher.send(.escapePressed)
+            }
+            shortcutRecognizer.externalVoiceInput = externalVoiceInput
+        }
+    }
+    var connectorPromptShortcut: ConnectorPromptShortcut = .commandShiftSpace {
+        didSet { shortcutRecognizer.connectorPromptShortcut = connectorPromptShortcut }
+    }
 
     /// The key that dictates (Settings → shortcuts). Takes effect on the next press.
     var dictationKey: DictationHotkey {

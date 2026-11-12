@@ -15,6 +15,13 @@ release page shows each platform under its own heading once that platform's file
 (`scripts/update-release-page.sh`, run by the Windows and Linux release workflows), followed by a
 downloads table. Under a platform heading, don't start bullets with "Windows:" again.
 
+## Drey Clicky developer preview — voice connectors
+
+- Optional Wispr Flow and Omi voice typing can be enabled together in Settings → Clicky. A separate prompt shortcut avoids Clicky's competing Fn/Control listeners; both opt-ins start off.
+- Typed Jax requests preserve the original screen and selection before the prompt takes focus, with a two-minute expiry.
+- Supported local Jax installations show gated command/computer approvals in a Mac Allow once / Deny dialog. Missing approval denies; denied receipts are marked blocked.
+- These voice-input connections do not connect Omi memories or import provider accounts. Live dictation through each app and approved app opening remain acceptance checks.
+
 ## 0.12.0
 
 With thanks to [darkworks](https://github.com/darkworks), who taught the drawing stage the new drawings below.

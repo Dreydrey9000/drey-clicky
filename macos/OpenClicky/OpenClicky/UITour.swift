@@ -13,6 +13,7 @@
 
 #if DEBUG
 import AppKit
+import SwiftUI
 
 @MainActor
 final class UITour {
@@ -46,6 +47,7 @@ final class UITour {
                 await tourWindow(appearanceName: "dark", appearance: .dark, scrolls: false)
             }
             if includes("firstrun") { await tourFirstRunCards() }
+            if includes("connectors") { await tourVoiceConnectors() }
             if includes("island") { await tourIsland() }
             if includes("orb") { await tourOrb() }
             log("DONE")
@@ -55,6 +57,40 @@ final class UITour {
     }
 
     // MARK: Demo history
+
+    private func tourVoiceConnectors() async {
+        guard ProcessInfo.processInfo.environment["CFFIXED_USER_HOME"] != nil else {
+            log("MISSING connectors-needs-demo-home")
+            return
+        }
+        companionManager.firstRunTour.debugShow(nil, companionManager: companionManager)
+        let connections = VoiceAppConnections.shared
+        let old = (connections.wisprFlow, connections.omi)
+        defer { connections.wisprFlow = old.0; connections.omi = old.1 }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 500), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+        window.title = "Drey Clicky voice connectors — component fixture"
+        window.center()
+        defer { window.close() }
+        for (name, flow, omi, installed) in [("off", false, false, true), ("flow", true, false, true), ("both", true, true, true), ("missing", false, false, false)] {
+            connections.wisprFlow = flow; connections.omi = omi
+            window.contentViewController = NSHostingController(rootView:
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("Voice app connectors · component fixture").font(.headline)
+                    VoiceConnectionRow(app: .wisprFlow, installedOverride: installed)
+                    VoiceConnectionRow(app: .omi, installedOverride: installed)
+                    VoicePromptShortcutRow()
+                    Text("Each app types into Clicky's prompt. These fixtures do not access accounts or start a microphone.").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color(nsColor: .windowBackgroundColor)))
+            // NSHostingController's initial intrinsic size is not this fixture's viewport.
+            window.setContentSize(NSSize(width: 820, height: 500))
+            window.makeKeyAndOrderFront(nil)
+            await shoot("connectors-\(name)-wide", window: window)
+            window.setContentSize(NSSize(width: 560, height: 550))
+            await shoot("connectors-\(name)-narrow", window: window)
+            window.setContentSize(NSSize(width: 820, height: 500))
+        }
+    }
 
     private func seedDemoTakes() {
         let demoTakes: [(String, String, String, Double)] = [

@@ -1,5 +1,8 @@
 flowchart TD
     User[User holds Control + Option or types a request] --> App[Native SwiftUI companion]
+    External[Optional Flow and Omi opt-ins, independently off by default] --> Prompt[Dedicated prompt shortcut and focused text field]
+    Prompt --> App
+    External -. Pauses competing Clicky voice listeners .-> Voice
     App --> Voice[Apple speech recognition]
     App --> Context[ScreenCaptureKit image and Accessibility selection]
     Voice --> CLI[Drey Clicky CLI]
@@ -8,6 +11,9 @@ flowchart TD
     Client --> Bridge[Local jax_run MCP task bridge]
     Bridge --> Jax[Existing Jax CLI and user profile]
     Jax --> Tools[Existing Jax tools and approval rules]
+    Tools -->|Gated command or computer action| Approval[Child-only Mac approval frontend: allow once or deny]
+    Approval -->|Explicit once| Action[Requested tool action]
+    Approval -->|Deny, timeout or cancellation| Blocked[Blocked receipt; no automatic retry]
     Jax --> Reply[Result receipt: full answer, short speech, pointer, file links]
     Reply --> App
     App --> Card[Full answer card]

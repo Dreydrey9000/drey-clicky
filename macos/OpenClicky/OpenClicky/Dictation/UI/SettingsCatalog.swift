@@ -79,7 +79,7 @@ struct SettingsCatalog {
     /// Every row as its builder makes it, before the layout gives it a page and a place.
     private func unplacedItems() -> [SettingsItem] {
         dictationItems() + keyboardItems() + orbItems()
-            + clickyItems() + voiceItems()
+            + clickyItems() + voiceItems() + voiceConnectionItems()
             + islandAppearanceItems() + islandPluginItems() + calendarSettingsItems() + weatherSettingsItems()
             + clipboardSettingsItems() + notesSettingsItems() + timerSettingsItems()
             + accountItems() + keysItems() + privacyItems() + generalItems() + aboutItems()

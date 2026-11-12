@@ -1,0 +1,32 @@
+// Render with: dot -Tsvg architecture.dot -o architecture.svg
+//              dot -Tpng architecture.dot -o architecture.png
+digraph DreyClickyArchitecture {
+  graph [rankdir=TB, bgcolor="#fafbfc", pad=0.3, nodesep=0.4, ranksep=0.5, label="Drey Clicky · implemented developer-preview routes\nMac permissions, live voice input and real action acceptance are separate checks", labelloc=b, fontname="Helvetica", fontsize=12];
+  node [shape=box, style="rounded,filled", fillcolor=white, color="#a8b3c2", fontcolor="#172438", fontname="Helvetica", fontsize=12, margin="0.18,0.12"];
+  edge [color="#48546a", fontname="Helvetica", fontsize=10];
+  input [label="Direct voice / typed request\nControl + Option when connectors are off"];
+  external [label="Optional Wispr Flow + Omi\nIndependent opt-ins · off by default"];
+  prompt [label="Dedicated prompt · ⌘⇧Space\nProvider types text; Return submits\nCompeting Clicky voice listeners pause"];
+  mac [label="Native Mac companion\nOriginal screen + selection before prompt\nIn-memory snapshot expires after 2 minutes"];
+  cli [label="Drey Clicky CLI\nJax default · bounded cancellation"];
+  mcp [label="Local MCP task bridge\njax_run · no automatic engine replay"];
+  jax [label="Existing Jax profile + tools\nCurrent model, accounts and action policies"];
+  approvals [label="Child-only Mac approval frontend\nGated command / computer action\nAllow once or Deny · no permanent unlock"];
+  action [label="Explicitly approved tool action"];
+  blocked [label="Deny / expiry / cancellation\nBlocked receipt; inspect prior work"];
+  reply [label="Result receipt → native companion\nShort speech + full card\nValidated pointer + actual file links"];
+  codex [label="Explicit alternate: Codex\nExisting ChatGPT sign-in / own-key backend"];
+  evidence [label="Screen/selection are untrusted evidence\nA pointer never grants action permission", shape=note];
+  input -> mac;
+  external -> prompt -> mac;
+  mac -> cli -> mcp -> jax;
+  cli -> codex [label="explicit selection"];
+  jax -> approvals [label="when policy requires approval"];
+  approvals -> action [label="once"];
+  approvals -> blocked [label="not approved"];
+  jax -> reply;
+  action -> reply;
+  blocked -> reply;
+  codex -> reply;
+  evidence -> mcp [style=dashed];
+}

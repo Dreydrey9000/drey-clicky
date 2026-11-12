@@ -27,26 +27,27 @@ extension SettingsCatalog {
             case .rightControl: return " Edits, hands-free and ⌃ twice use the left ⌃."
             }
         }()
-        let dictationKeyDetail = "Hold to talk anywhere. Tap to start a take, tap again to finish." + rightHandKeyNote
+        let externalVoice = VoiceAppConnections.shared.usesExternalVoice
+        let dictationKeyDetail = externalVoice ? "Paused while voice app connectors handle input. Your saved Clicky dictation key is kept for when you turn them off." : "Hold to talk anywhere. Tap to start a take, tap again to finish." + rightHandKeyNote
         return [
             SettingsItem(
                 id: "keyboard.dictationKey",
                 title: "Dictation key", detail: dictationKeyDetail,
                 keywords: ["fn", "hotkey", "push to talk", "right option", "right command", "right control", "dictate", "shortcut"],
                 view: AnyView(SettingsRow(title: "Dictation key", detail: dictationKeyDetail) {
-                    DictationKeyPicker(settings: settings)
+                    DictationKeyPicker(settings: settings).disabled(externalVoice)
                 })),
             SettingsItem(
                 id: "keyboard.fnWarning",
                 title: "fn also opens \(fnKeyState.usageNoun)", detail: "macOS uses the same key. You can switch it back in the system’s Keyboard settings.",
                 keywords: ["fn", "emoji", "globe", "free the fn key", "keyboard settings"],
-                isRelevant: { dictationKeyIsFn && !FnKeyState.shared.isFree },
+                isRelevant: { !VoiceAppConnections.shared.usesExternalVoice && dictationKeyIsFn && !FnKeyState.shared.isFree },
                 view: AnyView(FnKeyWarningRow(fnKeyState: fnKeyState))),
             SettingsItem(
                 id: "keyboard.fnFree",
                 title: "fn is free for dictation", detail: "macOS’s own fn action is off (Keyboard settings → Press 🌐 key to: Do Nothing).",
                 keywords: ["fn", "emoji", "globe", "give fn back"],
-                isRelevant: { dictationKeyIsFn && FnKeyState.shared.isFree },
+                isRelevant: { !VoiceAppConnections.shared.usesExternalVoice && dictationKeyIsFn && FnKeyState.shared.isFree },
                 view: AnyView(SettingsRow(title: "fn is free for dictation", detail: "macOS’s own fn action is off (Keyboard settings → Press 🌐 key to: Do Nothing).") {
                     Button("Give fn Back to macOS") { fnKeyState.giveBack() }
                         .pointerCursor()
@@ -58,34 +59,37 @@ extension SettingsCatalog {
     func keyboardItems() -> [SettingsItem] {
         let key = settings.dictationKey.keycapLabel
         let usesRealtime = AccountCapabilities.current().usesRealtime
+        let externalVoice = VoiceAppConnections.shared.usesExternalVoice
         return [
             SettingsItem(
                 id: "keyboard.edit",
                 title: "Edit selected text", detail: "Hold and say the change, like “make it formal”.",
                 keywords: ["hey clicky", "edit", "rewrite", "control", "⌃", "selection"],
+                isRelevant: { !VoiceAppConnections.shared.usesExternalVoice },
                 view: AnyView(SettingsRow(title: "Edit selected text", detail: "Hold and say the change, like “make it formal”.") {
                     SettingsKeys(keys: [key, "⌃"], gesture: "hold")
                 })),
             SettingsItem(
                 id: "keyboard.cancel",
-                title: "Cancel a take", detail: "Nothing is pasted.",
+                title: externalVoice ? "Stop Clicky" : "Cancel a take", detail: externalVoice ? "Escape stops Clicky's current task. Your voice app controls its own recording." : "Nothing is pasted.",
                 keywords: ["esc", "escape", "discard", "stop", "double-tap"],
-                view: AnyView(SettingsRow(title: "Cancel a take", detail: "Nothing is pasted.") {
-                    SettingsKeys(keys: ["esc"], gesture: "or \(key) twice")
+                view: AnyView(SettingsRow(title: externalVoice ? "Stop Clicky" : "Cancel a take", detail: externalVoice ? "Escape stops Clicky's current task." : "Nothing is pasted.") {
+                    SettingsKeys(keys: ["esc"], gesture: externalVoice ? "press" : "or \(key) twice")
                 })),
             SettingsItem(
                 id: "keyboard.talk",
-                title: "Talk to Clicky", detail: "Ask about anything on screen. It answers out loud and points.",
+                title: "Talk to Clicky", detail: externalVoice ? "Clicky's own voice shortcut is paused. Dictate into the prompt using your voice app." : "Ask about anything on screen. It answers out loud and points.",
                 keywords: ["⌃", "⌥", "control option", "voice", "ask", "companion"],
-                view: AnyView(SettingsRow(title: "Talk to Clicky", detail: "Ask about anything on screen. It answers out loud and points.") {
-                    SettingsKeys(keys: ["⌃", "⌥"], gesture: "hold")
+                view: AnyView(SettingsRow(title: "Talk to Clicky", detail: externalVoice ? "Own voice input paused while voice app connectors are enabled." : "Ask about anything on screen. It answers out loud and points.") {
+                    if externalVoice { Text("Paused").foregroundStyle(.secondary) }
+                    else { SettingsKeys(keys: ["⌃", "⌥"], gesture: "hold") }
                 })),
             SettingsItem(
                 id: "keyboard.type",
-                title: "Type to Clicky", detail: "A one-line composer opens in the island.",
+                title: "Type to Clicky", detail: externalVoice ? "Open the prompt, use your voice app, then press Return." : "A one-line composer opens in the island.",
                 keywords: ["⌃", "composer", "notch", "island", "text", "control twice"],
-                view: AnyView(SettingsRow(title: "Type to Clicky", detail: "A one-line composer opens in the island.") {
-                    SettingsKeys(keys: ["⌃"], gesture: "tap twice")
+                view: AnyView(SettingsRow(title: "Type to Clicky", detail: externalVoice ? "Dictate using your voice app, then press Return." : "A one-line composer opens in the island.") {
+                    SettingsKeys(keys: externalVoice ? VoiceAppConnections.shared.promptShortcut.keycaps : ["⌃"], gesture: externalVoice ? "press" : "tap twice")
                 })),
             // Hands-free runs on fast voice or, without a realtime key, on the standard lane; with
             // nothing that can answer the keys would do nothing, so it isn't listed.
@@ -93,7 +97,7 @@ extension SettingsCatalog {
                 id: "keyboard.handsFree",
                 title: "Hands-free", detail: "Always-on listening. Same keys to stop.",
                 keywords: ["always on", "realtime", "listening", "hands free"],
-                isRelevant: { usesRealtime || OpenClickyConfiguration.isConfigured },
+                isRelevant: { !VoiceAppConnections.shared.usesExternalVoice && (usesRealtime || OpenClickyConfiguration.isConfigured) },
                 view: AnyView(SettingsRow(title: "Hands-free", detail: "Always-on listening. Same keys to stop.") {
                     SettingsKeys(keys: [key, "⌃"], gesture: "tap twice")
                 })),

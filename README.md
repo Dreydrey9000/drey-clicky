@@ -7,11 +7,13 @@ A native macOS developer preview built on [OpenClicky](https://github.com/prasan
 ## What is here
 
 - Hold **Control + Option** to talk, or type into the native companion.
+- Opt into **Wispr Flow, Omi, or both** in Settings → Clicky → Voice app connectors. Open the prompt with **⌘⇧Space**, dictate using the other app, then press Return. Their shortcuts and accounts stay in those apps.
 - Send a screenshot and available selected text with a Jax request.
 - Hear a short answer; read the full answer in its card.
 - Resume Jax conversations and browse their local history in the Agents panel.
 - Use the existing Jax profile and tools. Choose Codex explicitly for code work with an existing ChatGPT sign-in or configured backend.
 - Stop or cancel a task, with bounded timeouts and no automatic replay on another engine.
+- Review Jax command/computer approvals in a Mac dialog: **Allow once** or **Deny**. A missing or expired answer denies; a denied request is marked blocked.
 - Keep the inherited offline dictation, screen pointer, skills and native companion foundation. Their availability depends on the selected route and macOS permissions.
 
 The visual redesign is awaiting a theme choice; the working OpenClicky interface is retained. VoiceOS trial parity, wake-word detection, Intel packaging and notarized distribution are not claimed. See the verification record for actual executed checks.
@@ -37,10 +39,13 @@ The Jax route uses your configured account. No keys ship in this repository. The
 ```mermaid
 flowchart LR
   Voice[Voice or text] --> Mac[Native Mac companion]
+  External[Optional Wispr Flow or Omi voice typing] --> Prompt[Dedicated Clicky prompt]
+  Prompt --> Mac
   Screen[Screen and selected text] --> Mac
   Mac --> CLI[Drey Clicky CLI]
   CLI --> MCP[Local Jax MCP task bridge]
   MCP --> Jax[Existing Jax profile and tools]
+  Jax --> Approval[Mac approval dialog for gated actions]
   Jax --> Answer[Short speech and full answer card]
   CLI -->|Explicit code engine| Codex[Codex adapter]
 ```
@@ -52,6 +57,7 @@ bash scripts/gauntlet.sh
 The gauntlet runs types, lint, source safety, tests, builds, the fork checks and an MCP handshake. Live provider, microphone, screen and spoken-audio verification remain separate checks.
 
 - [Verification record](docs/VERIFICATION.md)
+- [Optional Flow/Omi voice setup and boundaries](docs/VOICE-CONNECTORS.md)
 - [VoiceOS, OpenClicky and REA comparison](docs/COMPARISON.md)
 - [Measured QuickSilver routing improvement](docs/performance/QUICKSILVER.md) and [artifact scan improvement](docs/performance/QUICKSILVER-ARTIFACTS.md)
 - [UI interaction standard](docs/UI-STANDARD.md)

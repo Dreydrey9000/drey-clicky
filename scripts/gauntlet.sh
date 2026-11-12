@@ -13,6 +13,8 @@ npm run lint -- --quiet
 npm run lint:source
 npm run check:skills
 npm test -w agent -- --maxWorkers=2
+python3 -B -m unittest discover -s agent/test/python
+node --check < agent/runtime/mac_approval.jxa
 npm test -w backend -- --maxWorkers=2
 npm run build
 node agent/dist/cli.js doctor --json

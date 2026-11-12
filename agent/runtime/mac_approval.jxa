@@ -1,0 +1,17 @@
+// JavaScript for Automation, run by osascript. Data arrives on stdin, never as code.
+ObjC.import("Foundation");
+function run() {
+  const input = $.NSFileHandle.fileHandleWithStandardInput.readDataToEndOfFile;
+  const request = JSON.parse(ObjC.unwrap($.NSString.alloc.initWithDataEncoding(input, $.NSUTF8StringEncoding)));
+  if (typeof request.message !== "string" || request.message.length > 16000) return "deny";
+  const app = Application.currentApplication();
+  app.includeStandardAdditions = true;
+  try {
+    const answer = app.displayDialog(request.message, {
+      withTitle: "Drey Clicky — approve one action",
+      buttons: ["Deny", "Allow once"], defaultButton: "Deny", cancelButton: "Deny",
+      givingUpAfter: 60,
+    });
+    return !answer.gaveUp && answer.buttonReturned === "Allow once" ? "allow_once" : "deny";
+  } catch (_) { return "deny"; }
+}

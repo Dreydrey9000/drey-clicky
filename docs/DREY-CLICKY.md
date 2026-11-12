@@ -43,6 +43,8 @@ The first-use welcome introduces Jax and the hotkey in plain language after perm
 
 Hold Control + Option, speak, then release. Escape/stop interrupts. The native path sends its captured cursor-screen image and available selected text to Jax; password fields are excluded by the existing selection reader. No selection is fabricated when Accessibility cannot read it. The selected passage uses the native reader's bounded context (currently 600 characters). Short summaries are spoken; full answers remain in the result card. When Jax confidently locates a target, it can return one screenshot-space pointer. The bridge validates its bounds before the native overlay maps it onto the display. Pointer metadata is kept out of the spoken answer and full text. A pointer never clicks or grants approval.
 
+To keep another dictation app, opt into Wispr Flow, Omi or both in Settings → Clicky → Voice app connectors. Clicky's competing voice listeners pause. **⌘⇧Space** opens the prompt; dictate with your provider, review, and press Return. [Connector setup](VOICE-CONNECTORS.md) explains shortcut presets, original-screen context, privacy and separate Omi memory access. The supported local Jax installation now shows gated command/computer actions in a Mac **Allow once / Deny** dialog. Denials are reported as blocked, never silently replayed.
+
 ## Context, conversations and fallback
 
 ```sh

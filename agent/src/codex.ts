@@ -11,7 +11,7 @@ import { spawnTarget } from "./winSpawn.js";
 export interface RunResult {
   threadId: string;
   turnId: string;
-  status: "completed" | "failed" | "interrupted";
+  status: "completed" | "failed" | "interrupted" | "blocked";
   finalMessage: string;
   artifacts: string[];
   error?: string;

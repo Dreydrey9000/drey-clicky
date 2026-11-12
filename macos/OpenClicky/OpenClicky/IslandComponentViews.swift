@@ -203,7 +203,7 @@ struct AgentIslandView: View {
                 Button(action: {
                     let threadId = result.threadId
                     model.close()
-                    companionManager.notchHUDManager.openTextComposer(threadId: threadId.isEmpty ? nil : threadId)
+                    companionManager.openTextComposer(threadId: threadId.isEmpty ? nil : threadId)
                 }) {
                     Text("follow up")
                         .font(.system(size: 12, weight: .semibold))

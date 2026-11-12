@@ -15,6 +15,17 @@ beforeAll(async () => { workspace = await fs.mkdtemp(path.join(os.tmpdir(), "dre
 afterEach(() => { process.env = { ...originalEnv }; });
 
 describe("Drey Clicky task interface", () => {
+  it("marks a denied action blocked even if the model claims everything is done", async () => {
+    const result = await runJaxTask({ task: "approval-task", workspace }, { bin: fixture, approvalHandler: () => Promise.resolve("deny") });
+    expect(result.status).toBe("blocked");
+    expect(result.finalMessage).toContain("An action was not approved");
+    expect(result.spokenSummary).not.toBe("Everything is done.");
+  });
+  it("completes a fixture action only after an explicit once approval", async () => {
+    const result = await runJaxTask({ task: "approval-task", workspace }, { bin: fixture, approvalHandler: () => Promise.resolve("allow_once") });
+    expect(result.status).toBe("completed");
+    expect(result.finalMessage).not.toContain("not approved");
+  });
   it("loads matching bundled workflows from the user request", async () => {
     expect(await workflowGuidance("Prepare a 1BB calendar draft")).toContain("# Calendar tasks");
     expect(await workflowGuidance("Prepare a 1BB calendar draft")).toContain("# 1BB tasks");

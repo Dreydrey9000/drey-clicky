@@ -5,6 +5,8 @@ import path from "node:path";
 import { taskPrompt, validateImage, spokenSummary, imageSpaceFor, pointedAnswer } from "./taskContext.js";
 import { workflowGuidance } from "./workflowSkills.js";
 import { snapshotWorkspace, diffSnapshots } from "./artifacts.js";
+import { approvalCommand, attachApprovalChannel, type askMacApproval } from "./jaxApproval.js";
+import type { Duplex } from "node:stream";
 
 export interface JaxTask {
   task: string;
@@ -19,13 +21,13 @@ export interface JaxResult {
   finalMessage: string;
   spokenSummary: string;
   artifacts: string[];
-  status: "completed";
+  status: "completed" | "blocked";
   engine: "jax";
   pointTag?: string;
   artifactScanIncomplete?: boolean;
 }
 
-export async function runJaxTask(input: JaxTask, options: { bin?: string; timeoutMs?: number; signal?: AbortSignal } = {}): Promise<JaxResult> {
+export async function runJaxTask(input: JaxTask, options: { bin?: string; timeoutMs?: number; signal?: AbortSignal; approvalHandler?: typeof askMacApproval } = {}): Promise<JaxResult> {
   const image = await validateImage(input.imagePath);
   const imageSpace = image ? await imageSpaceFor(image) : undefined;
   const workspace = path.resolve(input.workspace);
@@ -39,17 +41,25 @@ export async function runJaxTask(input: JaxTask, options: { bin?: string; timeou
   const args = ["chat", "--query-file", "-", "--oneshot", "--quiet", "--continue", `drey-clicky-${threadId.slice(4)}`, "--create-if-missing", "--in", workspace, "--no-restore-cwd", "--source", "tool", "--max-turns", "20", "--run-budget", String(Math.max(1, Math.floor(timeoutMs / 1000)))];
   if (image) args.push("--image", image);
   const before = snapshotWorkspace(workspace);
+  let approvalDenied = false;
   const output = await new Promise<string>((resolve, reject) => {
-    const child = spawn(options.bin ?? process.env.DREY_CLICKY_JAX_BIN ?? "jax", args, {
-      cwd: workspace, stdio: ["pipe", "pipe", "pipe"], detached: process.platform !== "win32",
-      env: { ...process.env, TERMINAL_CWD: workspace, HERMES_QUIET: "1", HERMES_REDACT_SECRETS: "true" },
+    const bin = options.bin ?? process.env.DREY_CLICKY_JAX_BIN ?? "jax";
+    const adapter = approvalCommand(bin);
+    const withApprovals = !!adapter || !!options.approvalHandler;
+    const approvals = new AbortController();
+    const child = spawn(adapter?.command ?? bin, [...(adapter?.prefix ?? []), ...args], {
+      cwd: workspace, stdio: ["pipe", "pipe", "pipe", ...(withApprovals ? ["pipe" as const] : [])], detached: process.platform !== "win32",
+      env: { ...process.env, TERMINAL_CWD: workspace, HERMES_QUIET: "1", HERMES_REDACT_SECRETS: "true", ...(withApprovals ? { DREY_CLICKY_APPROVAL_FD: "3" } : {}) },
     });
+    const approvalChannel = withApprovals ? child.stdio[3] as Duplex | null : null;
+    const closeApprovals = approvalChannel ? attachApprovalChannel(approvalChannel, approvals.signal, { handler: options.approvalHandler, onDenied: () => { approvalDenied = true; } }) : () => {};
     let stdout = "";
     let stopped: Error | undefined;
     let killTimer: NodeJS.Timeout | undefined;
     const stop = (error: Error) => {
       if (stopped) return;
       stopped = error;
+      approvals.abort();
       const kill = (signal: NodeJS.Signals) => {
         try {
           if (process.platform !== "win32" && child.pid) process.kill(-child.pid, signal);
@@ -63,7 +73,7 @@ export async function runJaxTask(input: JaxTask, options: { bin?: string; timeou
     const timer = setTimeout(() => stop(new Error("Jax timed out. Work may have started; check the app before retrying.")), timeoutMs);
     const abort = () => stop(new Error("Jax cancelled. Work already performed may remain; check before retrying."));
     options.signal?.addEventListener("abort", abort, { once: true });
-    const cleanup = () => { clearTimeout(timer); if (killTimer) clearTimeout(killTimer); options.signal?.removeEventListener("abort", abort); };
+    const cleanup = () => { clearTimeout(timer); if (killTimer) clearTimeout(killTimer); options.signal?.removeEventListener("abort", abort); approvals.abort(); closeApprovals(); };
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
       stdout += chunk;
@@ -96,6 +106,7 @@ export async function runJaxTask(input: JaxTask, options: { bin?: string; timeou
   const artifactScanIncomplete = before.truncated || after.truncated;
   const artifacts = artifactScanIncomplete ? [] : diffSnapshots(before, after);
   const scanNote = artifactScanIncomplete ? "\n\nFile links are unavailable because the workspace scan reached a limit or an unreadable entry. Check the workspace directly." : "";
-  const finalMessage = answer + (setupWarnings.length ? `\n\nJax setup note: ${setupWarnings.join("; ")}` : "") + scanNote;
-  return { threadId, turnId: randomUUID(), finalMessage, spokenSummary: spokenSummary(answer), artifacts, status: "completed", engine: "jax", ...(pointed.pointTag ? { pointTag: pointed.pointTag } : {}), ...(artifactScanIncomplete ? { artifactScanIncomplete: true } : {}) };
+  const approvalNote = approvalDenied ? "An action was not approved. Review Jax's response and any prior work before retrying.\n\n" : "";
+  const finalMessage = approvalNote + answer + (setupWarnings.length ? `\n\nJax setup note: ${setupWarnings.join("; ")}` : "") + scanNote;
+  return { threadId, turnId: randomUUID(), finalMessage, spokenSummary: approvalDenied ? "That action was not approved. The details are in your card." : spokenSummary(answer), artifacts, status: approvalDenied ? "blocked" : "completed", engine: "jax", ...(pointed.pointTag ? { pointTag: pointed.pointTag } : {}), ...(artifactScanIncomplete ? { artifactScanIncomplete: true } : {}) };
 }
