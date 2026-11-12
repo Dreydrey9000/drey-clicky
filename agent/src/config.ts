@@ -10,6 +10,9 @@ export interface AgentConfig {
   token?: string;
   /** Isolated CODEX_HOME. Stable across runs so threads can be resumed. */
   codexHome: string;
+  /** Use Codex's existing ChatGPT sign-in, without rewriting its account configuration. */
+  useCodexPlan?: boolean;
+  codexAccountHome?: string;
   /** Codex binary (name on PATH or absolute path). */
   codexBin: string;
   /** Directory the agent works in. */
@@ -87,7 +90,9 @@ export function resolveConfig(flags: Partial<AgentConfig> = {}, env: NodeJS.Proc
   return {
     backendUrl: stripSlash(flags.backendUrl ?? env.OPENCLICKY_BACKEND_URL ?? env.BACKEND_URL ?? "https://api.openclicky.org"),
     token: flags.token ?? env.OPENCLICKY_TOKEN ?? undefined,
-    codexHome: flags.codexHome ?? env.OPENCLICKY_CODEX_HOME ?? path.join(home, ".openclicky", "codex-home"),
+    codexHome: flags.codexHome ?? env.OPENCLICKY_CODEX_HOME ?? path.join(home, ".drey-clicky", "codex-home"),
+    useCodexPlan: flags.useCodexPlan ?? (env.DREY_CLICKY_CODEX_AUTH === "chatgpt" || (env.DREY_CLICKY_CODEX_AUTH !== "backend" && !(flags.token ?? env.OPENCLICKY_TOKEN) && !(flags.openaiApiKey ?? env.OPENCLICKY_OPENAI_KEY))),
+    codexAccountHome: flags.codexAccountHome ?? env.CODEX_HOME ?? path.join(home, ".codex"),
     codexBin: flags.codexBin ?? env.OPENCLICKY_CODEX_BIN ?? "codex",
     workspace: path.resolve(flags.workspace ?? env.OPENCLICKY_WORKSPACE ?? process.cwd()),
     // The whole home folder by default: an assistant asked to "make a folder on the Desktop" or
@@ -103,7 +108,7 @@ export function resolveConfig(flags: Partial<AgentConfig> = {}, env: NodeJS.Proc
     composioApiKey: flags.composioApiKey ?? env.COMPOSIO_API_KEY ?? undefined,
     cuaDriverBin: flags.cuaDriverBin ?? resolveCuaDriverBin(env.CUA_DRIVER_BIN, home),
     ffmpegBin: flags.ffmpegBin ?? env.OPENCLICKY_FFMPEG_BIN ?? "ffmpeg",
-    userSkillsDir: path.resolve(flags.userSkillsDir ?? env.OPENCLICKY_USER_SKILLS_DIR ?? path.join(home, ".openclicky", "skills")),
+    userSkillsDir: path.resolve(flags.userSkillsDir ?? env.OPENCLICKY_USER_SKILLS_DIR ?? path.join(home, ".drey-clicky", "skills")),
     openaiApiKey: flags.openaiApiKey ?? env.OPENCLICKY_OPENAI_KEY ?? undefined,
     anthropicApiKey: flags.anthropicApiKey ?? env.OPENCLICKY_ANTHROPIC_KEY ?? undefined,
     // 10 minutes by default (see codex.ts DEFAULT_RUN_TIMEOUT_MS): long enough for any real agent

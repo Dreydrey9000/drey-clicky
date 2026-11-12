@@ -26,6 +26,15 @@ function mkCfg(overrides: Partial<Parameters<typeof resolveConfig>[0]> = {}, sce
 }
 
 describe("buildChildEnv", () => {
+  it("reuses account auth without forwarding backend or unrelated provider secrets", () => {
+    const cfg = mkCfg({ useCodexPlan: true, codexAccountHome: "/existing-codex", openaiApiKey: "not-forwarded" });
+    const env = buildChildEnv(cfg, { HOME: "/h", OPENAI_API_KEY: "secret", CODEX_HOME: "/wrong", AWS_SECRET_ACCESS_KEY: "secret" });
+    expect(env.CODEX_HOME).toBe("/existing-codex");
+    expect(env.OPENCLICKY_SESSION_TOKEN).toBeUndefined();
+    expect(env.OPENCLICKY_OPENAI_KEY).toBeUndefined();
+    expect(env.OPENAI_API_KEY).toBeUndefined();
+    expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
+  });
   it("carries PATH but not an unrelated secret sitting in the shell", () => {
     const cfg = mkCfg();
     const env = buildChildEnv(cfg, { PATH: "/usr/bin", AWS_SECRET_ACCESS_KEY: "super-secret", HOME: "/home/x" });
@@ -57,6 +66,28 @@ describe("buildChildEnv", () => {
 });
 
 describe("CodexAgent.run timeout and error handling (fake codex)", () => {
+  it("leaves existing account config unchanged and limits history to the current workspace", async () => {
+    const cfg = mkCfg({ useCodexPlan: true });
+    cfg.codexAccountHome = cfg.codexHome;
+    const configPath = path.join(cfg.codexHome, "config.toml");
+    fs.writeFileSync(configPath, '# existing user configuration\nmodel = "my-model"\n');
+    const original = fs.readFileSync(configPath, "utf8");
+    const agent = new CodexAgent(cfg);
+    try {
+      await agent.start();
+      expect((await agent.listThreads()).map(t => t.id)).toEqual(["mine"]);
+      await expect(agent.readThread("other")).rejects.toThrow(/another workspace/);
+      await expect(agent.run("do not dispatch", { threadId: "other" })).rejects.toThrow(/another workspace/);
+      await expect(agent.archiveThread("other")).rejects.toThrow(/another workspace/);
+      expect((await agent.run("a new task")).status).toBe("completed");
+      expect(fs.readFileSync(configPath, "utf8")).toBe(original);
+      const args = JSON.parse(fs.readFileSync(path.join(cfg.codexHome, "fake-args.json"), "utf8")) as string[];
+      expect(args).toContain('model_provider="openai"');
+      expect(args).toContain("sandbox_workspace_write.writable_roots=[]");
+      const requests = fs.readFileSync(path.join(cfg.codexHome, "fake-requests.jsonl"), "utf8");
+      for (const method of ["thread/turns/list", "thread/resume", "thread/archive"]) expect(requests).not.toContain(`"method":"${method}"`);
+    } finally { await agent.stop(); }
+  });
   it("rejects with a clear message instead of hanging forever when no terminal event ever arrives", async () => {
     const cfg = mkCfg({}, "hang");
     const agent = new CodexAgent(cfg);

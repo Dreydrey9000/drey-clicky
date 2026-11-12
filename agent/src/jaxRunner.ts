@@ -2,8 +2,9 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { taskPrompt, validateImage, spokenSummary } from "./taskContext.js";
+import { taskPrompt, validateImage, spokenSummary, imageSpaceFor, pointedAnswer } from "./taskContext.js";
 import { workflowGuidance } from "./workflowSkills.js";
+import { snapshotWorkspace, diffSnapshots } from "./artifacts.js";
 
 export interface JaxTask {
   task: string;
@@ -20,13 +21,16 @@ export interface JaxResult {
   artifacts: string[];
   status: "completed";
   engine: "jax";
+  pointTag?: string;
+  artifactScanIncomplete?: boolean;
 }
 
 export async function runJaxTask(input: JaxTask, options: { bin?: string; timeoutMs?: number; signal?: AbortSignal } = {}): Promise<JaxResult> {
-  const prompt = taskPrompt(input.task, input.selectedText, await workflowGuidance(input.task));
   const image = await validateImage(input.imagePath);
+  const imageSpace = image ? await imageSpaceFor(image) : undefined;
   const workspace = path.resolve(input.workspace);
   if (!(await fs.stat(workspace)).isDirectory()) throw new Error("The working directory does not exist.");
+  const prompt = taskPrompt(input.task, { selectedText: input.selectedText, workflow: await workflowGuidance(input.task), workspace, imageSpace });
   const threadId = input.threadId ?? `jax:${randomUUID()}`;
   if (!/^jax:[a-zA-Z0-9-]{1,80}$/.test(threadId)) throw new Error("This is not a Jax conversation. Start a new conversation when changing engines.");
   const timeoutMs = options.timeoutMs ?? 180_000;
@@ -34,10 +38,11 @@ export async function runJaxTask(input: JaxTask, options: { bin?: string; timeou
   options.signal?.throwIfAborted();
   const args = ["chat", "--query-file", "-", "--oneshot", "--quiet", "--continue", `drey-clicky-${threadId.slice(4)}`, "--create-if-missing", "--in", workspace, "--no-restore-cwd", "--source", "tool", "--max-turns", "20", "--run-budget", String(Math.max(1, Math.floor(timeoutMs / 1000)))];
   if (image) args.push("--image", image);
+  const before = snapshotWorkspace(workspace);
   const output = await new Promise<string>((resolve, reject) => {
     const child = spawn(options.bin ?? process.env.DREY_CLICKY_JAX_BIN ?? "jax", args, {
       cwd: workspace, stdio: ["pipe", "pipe", "pipe"], detached: process.platform !== "win32",
-      env: { ...process.env, HERMES_QUIET: "1", HERMES_REDACT_SECRETS: "true" },
+      env: { ...process.env, TERMINAL_CWD: workspace, HERMES_QUIET: "1", HERMES_REDACT_SECRETS: "true" },
     });
     let stdout = "";
     let stopped: Error | undefined;
@@ -84,8 +89,13 @@ export async function runJaxTask(input: JaxTask, options: { bin?: string; timeou
   });
   // Quiet mode can include the CLI's session footer; it does not belong in spoken answers.
   const setupWarnings = output.match(/^Warning: Unknown toolsets: [^\n]+/gm) ?? [];
-  const answer = output.replace(/^Warning: Unknown toolsets: [^\n]+\n?/gm, "").replace(/\n(?:Session(?: ID)?|Resume(?: with)?):[^\n]*$/gi, "").trim();
+  const pointed = pointedAnswer(output.replace(/^Warning: Unknown toolsets: [^\n]+\n?/gm, "").replace(/\n(?:Session(?: ID)?|Resume(?: with)?):[^\n]*$/gi, "").trim(), imageSpace);
+  const answer = pointed.text;
   if (!answer) throw new Error("Jax returned only session metadata or setup warnings, with no answer.");
-  const finalMessage = answer + (setupWarnings.length ? `\n\nJax setup note: ${setupWarnings.join("; ")}` : "");
-  return { threadId, turnId: randomUUID(), finalMessage, spokenSummary: spokenSummary(answer), artifacts: [], status: "completed", engine: "jax" };
+  const after = snapshotWorkspace(workspace);
+  const artifactScanIncomplete = before.truncated || after.truncated;
+  const artifacts = artifactScanIncomplete ? [] : diffSnapshots(before, after);
+  const scanNote = artifactScanIncomplete ? "\n\nFile links are unavailable because the workspace scan reached a limit or an unreadable entry. Check the workspace directly." : "";
+  const finalMessage = answer + (setupWarnings.length ? `\n\nJax setup note: ${setupWarnings.join("; ")}` : "") + scanNote;
+  return { threadId, turnId: randomUUID(), finalMessage, spokenSummary: spokenSummary(answer), artifacts, status: "completed", engine: "jax", ...(pointed.pointTag ? { pointTag: pointed.pointTag } : {}), ...(artifactScanIncomplete ? { artifactScanIncomplete: true } : {}) };
 }

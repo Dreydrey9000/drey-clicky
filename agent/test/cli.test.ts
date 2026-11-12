@@ -83,6 +83,32 @@ beforeAll(async () => {
 afterAll(() => server.close());
 
 describe("openclicky CLI", () => {
+  it("stops its Codex child when the UI cancels a running task with SIGTERM", async () => {
+    const codexHome = fs.mkdtempSync(path.join(os.tmpdir(), "dc-cancel-home-"));
+    const ws = fs.mkdtempSync(path.join(os.tmpdir(), "dc-cancel-ws-"));
+    fs.writeFileSync(path.join(codexHome, "fake-scenario.txt"), "hang");
+    const p = spawn(process.execPath, ["--import", "tsx", cli, "run", "wait", "--engine", "codex", "--cwd", ws], {
+      cwd: path.resolve(here, ".."),
+      env: { ...process.env, DREY_CLICKY_CODEX_AUTH: "backend", BACKEND_URL: url, OPENCLICKY_TOKEN: "cli-token", OPENCLICKY_CODEX_HOME: codexHome, OPENCLICKY_CODEX_BIN: fakeCodex },
+      stdio: "ignore",
+    });
+    const closed = new Promise<void>(resolve => p.once("close", () => resolve()));
+    const pidPath = path.join(codexHome, "fake-codex.pid");
+    let pid: number | undefined;
+    try {
+      for (let n = 0; n < 100 && !fs.existsSync(pidPath); n++) await new Promise(resolve => setTimeout(resolve, 30));
+      expect(fs.existsSync(pidPath)).toBe(true);
+      pid = Number(fs.readFileSync(pidPath, "utf8"));
+      p.kill("SIGTERM");
+      await closed;
+      expect(() => process.kill(pid!, 0)).toThrow();
+    } finally {
+      p.kill("SIGKILL");
+      if (pid) { try { process.kill(pid, "SIGKILL"); } catch { /* Already stopped. */ } }
+      fs.rmSync(codexHome, { recursive: true, force: true });
+      fs.rmSync(ws, { recursive: true, force: true });
+    }
+  }, 10_000);
   it("skills list/activate/deactivate manage the user library", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "oc-cli-skills-"));
     const env = { OPENCLICKY_USER_SKILLS_DIR: dir };

@@ -56,6 +56,13 @@ final class CompanionAppDelegate: NSObject, NSApplicationDelegate {
         // GUI, permissions, or screen capture. Used by scripted builds:
         //   OpenClicky.app/Contents/MacOS/OpenClicky --openclicky-smoke-run "create a file called x.txt containing 'y'"
         let launchArguments = CommandLine.arguments
+        if let index = launchArguments.firstIndex(of: "--drey-clicky-voice-smoke"), index + 3 < launchArguments.count {
+            let inputURL = URL(fileURLWithPath: launchArguments[index + 1])
+            let imagePath = launchArguments[index + 2]
+            let outputURL = URL(fileURLWithPath: launchArguments[index + 3], isDirectory: true)
+            Task { @MainActor in exit(await DreyClickyVoiceSmoke.run(inputURL: inputURL, imagePath: imagePath, outputDirectory: outputURL)) }
+            return
+        }
         if launchArguments.contains("--drey-clicky-diagnostics") {
             let status: [String: Any] = [
                 "bundleIdentifier": Bundle.main.bundleIdentifier ?? "unknown",
@@ -63,6 +70,7 @@ final class CompanionAppDelegate: NSObject, NSApplicationDelegate {
                 "screenRecording": CGPreflightScreenCaptureAccess(),
                 "microphoneStatus": AVCaptureDevice.authorizationStatus(for: .audio).rawValue,
                 "speechStatus": SFSpeechRecognizer.authorizationStatus().rawValue,
+                "speechConsentRequired": AppleSpeechTranscriptionProvider().requiresSpeechRecognitionPermission,
                 "workEngine": OpenClickyConfiguration.usesJax ? "jax" : "codex",
                 "cliAvailable": OpenClickyAgentClient.isToolInstalled
             ]

@@ -245,8 +245,12 @@ struct PermissionPromptTests {
         model.setBusy(true)
         model.setSpeaking(true)
         model.setHovering(true)
-        try await Task.sleep(nanoseconds: 600_000_000)
-        #expect(model.expansion == .compact)
+        // Wait for the actual transition: the main actor can be busy with the other native
+        // suites, so a fixed 600 ms sleep can resume before the 400 ms HUD task has run.
+        for _ in 0..<500 where model.expansion != .compact {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        try #require(model.expansion == .compact)
 
         model.setSpeaking(false)
         model.setBusy(false)

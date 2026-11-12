@@ -6,28 +6,42 @@ const MAX_DEPTH = 6;
 const MAX_FILES = 20_000;
 
 type Snapshot = Map<string, string>; // abs path → `${mtimeMs}:${size}`
+type WorkspaceSnapshot = Snapshot & { truncated: boolean };
 
-/** Record every regular file under `dir` (bounded depth/count; skips dependency and VCS dirs). */
-export function snapshotWorkspace(dir: string): Snapshot {
-  const snap: Snapshot = new Map();
+/** Record regular files with bounded depth/count. `truncated` also flags unreadable entries. */
+export function snapshotWorkspace(dir: string): WorkspaceSnapshot {
+  const snap: WorkspaceSnapshot = Object.assign(new Map<string, string>(), { truncated: false });
+  let inspectedFiles = 0;
   const walk = (d: string, depth: number) => {
-    if (depth > MAX_DEPTH || snap.size >= MAX_FILES) return;
+    if (depth > MAX_DEPTH || inspectedFiles >= MAX_FILES) {
+      snap.truncated = true;
+      return;
+    }
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(d, { withFileTypes: true });
     } catch {
+      snap.truncated = true;
       return;
     }
     for (const e of entries) {
       if (SKIP.has(e.name) || (e.name.startsWith(".") && e.isDirectory())) continue;
+      if (!e.isFile() && !e.isDirectory()) continue;
+      // A flat directory never re-enters walk(), so checking only on entry misses the cap.
+      if (inspectedFiles >= MAX_FILES) {
+        snap.truncated = true;
+        return;
+      }
       const p = path.join(d, e.name);
       if (e.isDirectory()) walk(p, depth + 1);
       else if (e.isFile()) {
+        inspectedFiles += 1;
         try {
           const st = fs.statSync(p);
           snap.set(p, `${st.mtimeMs}:${st.size}`);
         } catch {
-          /* vanished */
+          // Do not present an incomplete before/after pair as evidence that a file is new.
+          snap.truncated = true;
         }
       }
     }

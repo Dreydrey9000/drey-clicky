@@ -13,4 +13,6 @@ if (input.includes('"hang-tree"')) {
 else if (input.includes('"hang"')) { setInterval(() => {}, 1000); }
 else if (input.includes('"fail"')) { process.stderr.write("private-diagnostic-must-not-leak"); process.exit(3); }
 else if (input.includes('"warning"')) process.stdout.write("Warning: Unknown toolsets: example-old-tool\nYour draft is ready.");
+else if (input.includes('"create-artifact"')) { fs.writeFileSync("created-by-jax.txt", "verified\n"); process.stdout.write("The file is ready."); }
+else if (input.includes('"point-fixture"')) process.stdout.write("[POINT:128,128:red square] The red square is here.");
 else process.stdout.write("Your draft is ready.\n\n" + "Details for the answer card. ".repeat(20));

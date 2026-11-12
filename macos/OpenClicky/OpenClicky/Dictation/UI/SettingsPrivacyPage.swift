@@ -95,9 +95,9 @@ extension SettingsCatalog {
                 })),
             SettingsItem(
                 id: "privacy.whereKeys",
-                title: "Keys and account", detail: "~/.openclicky/shell.json",
+                title: "Keys and account", detail: "~/.drey-clicky/shell.json",
                 keywords: ["shell.json", "token", "file", "key"],
-                view: AnyView(SettingsRow(title: "Keys and account", detail: "~/.openclicky/shell.json") {
+                view: AnyView(SettingsRow(title: "Keys and account", detail: "~/.drey-clicky/shell.json") {
                     Button("Show in Finder") { OpenClickyConfiguration.revealSettingsFile() }
                         .pointerCursor()
                 })),

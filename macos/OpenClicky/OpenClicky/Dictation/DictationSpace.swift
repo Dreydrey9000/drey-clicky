@@ -3,7 +3,7 @@
 //  OpenClicky
 //
 //  "Your space": the styles each app is written in, the dictionary of names spelled your way, and
-//  the spoken shortcuts that expand into saved text. Three JSON files under ~/.openclicky/dictation,
+//  the spoken shortcuts that expand into saved text. Three JSON files under ~/.drey-clicky/dictation,
 //  readable and editable by hand, watched for changes made outside the app.
 //
 
@@ -118,7 +118,7 @@ struct DictationSpace: Equatable {
     }
 }
 
-/// Reads and writes the space under ~/.openclicky/dictation, and reloads when the files change.
+/// Reads and writes the space under ~/.drey-clicky/dictation, and reloads when the files change.
 @MainActor
 final class DictationSpaceStore: ObservableObject {
     @Published private(set) var space: DictationSpace
@@ -128,7 +128,7 @@ final class DictationSpaceStore: ObservableObject {
     private var pendingReload: DispatchWorkItem?
     private var lastWriteFingerprint = ""
 
-    static let defaultDirectoryURL = URL(fileURLWithPath: NSString(string: "~/.openclicky/dictation").expandingTildeInPath)
+    static let defaultDirectoryURL = URL(fileURLWithPath: NSString(string: "~/.drey-clicky/dictation").expandingTildeInPath)
 
     init(directoryURL: URL = DictationSpaceStore.defaultDirectoryURL) {
         self.directoryURL = directoryURL

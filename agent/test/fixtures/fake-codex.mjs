@@ -27,6 +27,7 @@ try {
   // No scenario file: default to "complete".
 }
 if (codexHome) fs.writeFileSync(path.join(codexHome, "fake-codex.pid"), String(process.pid));
+if (codexHome) fs.writeFileSync(path.join(codexHome, "fake-args.json"), JSON.stringify(process.argv.slice(2)));
 
 const write = (msg) => process.stdout.write(JSON.stringify(msg) + "\n");
 const threadId = "fake-thread-1";
@@ -65,6 +66,7 @@ rl.on("line", (line) => {
     return; // stray non-JSON line; ignore like the real protocol reader does.
   }
   const { id, method, params } = msg;
+  if (codexHome) fs.appendFileSync(path.join(codexHome, "fake-requests.jsonl"), JSON.stringify({ method, params }) + "\n");
   switch (method) {
     case "initialize":
       write({ jsonrpc: "2.0", id, result: {} });
@@ -72,6 +74,12 @@ rl.on("line", (line) => {
     case "thread/start":
     case "thread/resume":
       write({ jsonrpc: "2.0", id, result: { thread: { id: threadId }, model: "fake-model", modelProvider: "openclicky" } });
+      break;
+    case "thread/read":
+      write({ jsonrpc: "2.0", id, result: { thread: { id: params.threadId, cwd: "/different-workspace" } } });
+      break;
+    case "thread/list":
+      write({ jsonrpc: "2.0", id, result: { data: [{ id: "mine", cwd: params.cwd }, { id: "other", cwd: "/different-workspace" }] } });
       break;
     case "turn/start":
       write({ jsonrpc: "2.0", id, result: { turn: { id: turnId } } });

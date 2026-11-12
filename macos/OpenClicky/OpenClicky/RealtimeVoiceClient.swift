@@ -655,7 +655,7 @@ final class RealtimeVoiceClient: NSObject, ObservableObject {
         let detail = stated.flatMap { $0.isEmpty ? nil : $0 } ?? "no client secret"
         switch statusCode {
         case 401, 403:
-            return "the backend refused (\(statusCode)): \(detail). Check your sign-in, or your own OpenAI key in ~/.openclicky/shell.json."
+            return "the backend refused (\(statusCode)): \(detail). Check your sign-in, or your own OpenAI key in ~/.drey-clicky/shell.json."
         case 0:
             return detail
         default:

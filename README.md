@@ -10,7 +10,7 @@ A native macOS developer preview built on [OpenClicky](https://github.com/prasan
 - Send a screenshot and available selected text with a Jax request.
 - Hear a short answer; read the full answer in its card.
 - Resume Jax conversations and browse their local history in the Agents panel.
-- Use the existing Jax profile and tools. Choose Codex explicitly for code work.
+- Use the existing Jax profile and tools. Choose Codex explicitly for code work with an existing ChatGPT sign-in or configured backend.
 - Stop or cancel a task, with bounded timeouts and no automatic replay on another engine.
 - Keep the inherited offline dictation, screen pointer, skills and native companion foundation. Their availability depends on the selected route and macOS permissions.
 
@@ -53,7 +53,7 @@ The gauntlet runs types, lint, source safety, tests, builds, the fork checks and
 
 - [Verification record](docs/VERIFICATION.md)
 - [VoiceOS, OpenClicky and REA comparison](docs/COMPARISON.md)
-- [Measured QuickSilver routing improvement](docs/performance/QUICKSILVER.md)
+- [Measured QuickSilver routing improvement](docs/performance/QUICKSILVER.md) and [artifact scan improvement](docs/performance/QUICKSILVER-ARTIFACTS.md)
 - [UI interaction standard](docs/UI-STANDARD.md)
 - [Release and plugin plan](docs/RELEASE.md)
 - [Original OpenClicky guide](docs/UPSTREAM-README.md), [license](LICENSE), [original Mac license](macos/OpenClicky/LICENSE)

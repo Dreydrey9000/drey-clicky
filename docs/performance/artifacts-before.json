@@ -1,0 +1,41 @@
+{
+  "label": "before",
+  "node": "v22.22.3",
+  "scenario": "25000 regular synthetic files in one flat directory",
+  "setupMs": 2285.99,
+  "samples": [
+    {
+      "milliseconds": 201.07,
+      "returnedFiles": 25000,
+      "statCalls": 25000,
+      "truncated": null
+    },
+    {
+      "milliseconds": 156.74,
+      "returnedFiles": 25000,
+      "statCalls": 25000,
+      "truncated": null
+    },
+    {
+      "milliseconds": 129.56,
+      "returnedFiles": 25000,
+      "statCalls": 25000,
+      "truncated": null
+    },
+    {
+      "milliseconds": 153.27,
+      "returnedFiles": 25000,
+      "statCalls": 25000,
+      "truncated": null
+    },
+    {
+      "milliseconds": 127.4,
+      "returnedFiles": 25000,
+      "statCalls": 25000,
+      "truncated": null
+    }
+  ],
+  "medianMs": 153.27,
+  "p95Ms": 201.07,
+  "fixtureRemovedOnExit": true
+}

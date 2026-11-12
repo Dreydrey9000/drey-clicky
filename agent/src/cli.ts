@@ -16,7 +16,7 @@ import { listLibrary, setActive } from "./skillsLibrary.js";
 import { spawnTarget } from "./winSpawn.js";
 import fs from "node:fs/promises";
 import { runJaxMcp, withJaxClient } from "./jaxMcp.js";
-import { taskPrompt } from "./taskContext.js";
+import { taskPrompt, spokenSummary } from "./taskContext.js";
 import { saveJaxHistory, listJaxHistory, readJaxHistory, archiveJaxHistory } from "./jaxHistory.js";
 
 const program = new Command();
@@ -162,13 +162,17 @@ async function runAgent(cfg: AgentConfig, task: string, opts: Record<string, any
   const engine = opts.engine ?? process.env.DREY_CLICKY_ENGINE ?? "jax";
   if (engine !== "jax" && engine !== "codex") fail("--engine must be jax or codex");
   const selectedText = opts.selectedTextFile ? await fs.readFile(String(opts.selectedTextFile), "utf8") : undefined;
-  if (engine === "codex") return runCodex(cfg, selectedText ? taskPrompt(task, selectedText) : task, opts);
+  if (engine === "codex") return runCodex(cfg, taskPrompt(task, { selectedText, workspace: cfg.workspace }), opts);
   const controller = new AbortController();
   const cancel = () => controller.abort();
   process.once("SIGINT", cancel);
   process.once("SIGTERM", cancel);
   let imagePath: string | undefined;
   try {
+    if (opts.thread) {
+      const history = await readJaxHistory(String(opts.thread));
+      if (path.resolve(history.thread.cwd) !== path.resolve(cfg.workspace)) fail("This Jax conversation belongs to another workspace. Start a new conversation here.");
+    }
     imagePath = resolveImage(opts);
     const result = await runJaxMcp({ task, workspace: cfg.workspace, imagePath, selectedText, threadId: opts.thread }, { signal: controller.signal, onEvent: note });
     try { await saveJaxHistory(task, cfg.workspace, result); }
@@ -185,7 +189,7 @@ async function runAgent(cfg: AgentConfig, task: string, opts: Record<string, any
 }
 
 async function runCodex(cfg: AgentConfig, task: string, opts: Record<string, any>): Promise<RunResult> {
-  if (!canCallBackend(cfg)) fail(MISSING_CREDENTIALS);
+  if (!cfg.useCodexPlan && !canCallBackend(cfg)) fail(MISSING_CREDENTIALS);
   let streamed = false;
   const agent = new CodexAgent(cfg, {
     onEvent: note,
@@ -199,9 +203,17 @@ async function runCodex(cfg: AgentConfig, task: string, opts: Record<string, any
           },
     onApproval: opts.approve ? promptApproval : undefined,
   });
+  let cancelled = false;
+  const cancel = () => { cancelled = true; void agent.stop(); };
+  process.once("SIGINT", cancel);
+  process.once("SIGTERM", cancel);
+  let imagePath: string | undefined;
   try {
     await agent.start();
-    const result = await agent.run(task, { threadId: opts.thread, imagePath: resolveImage(opts) });
+    if (cancelled) fail("Codex task cancelled");
+    imagePath = resolveImage(opts);
+    const result = { ...await agent.run(task, { threadId: opts.thread, imagePath }), spokenSummary: "" };
+    result.spokenSummary = spokenSummary(result.finalMessage);
     if (opts.events) {
       emit({ type: "result", ...result });
     } else if (opts.json) {
@@ -215,7 +227,10 @@ async function runCodex(cfg: AgentConfig, task: string, opts: Record<string, any
     if (result.status !== "completed") fail(`turn ${result.status}${result.error ? `: ${result.error}` : ""}`);
     return result;
   } finally {
+    process.removeListener("SIGINT", cancel);
+    process.removeListener("SIGTERM", cancel);
     await agent.stop();
+    if (opts.screenshot && imagePath) await fs.rm(imagePath, { force: true }).catch(() => undefined);
   }
 }
 

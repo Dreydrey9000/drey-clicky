@@ -431,7 +431,9 @@ enum OpenClickyConfiguration {
     nonisolated static func isConfigured(_ shellSettings: OpenClickyShellSettings) -> Bool {
         let credentials = ProviderCredentials(settings: shellSettings)
         // An account, an OpenAI key (it also covers speech and dictation), or anything that can answer.
-        return shellSettings.workEngine != "codex" || credentials.accountToken != nil || credentials.openAIKey != nil || !credentials.answerSourcesInOrder.isEmpty
+        // Both work engines validate their own account at request time. Codex can reuse ChatGPT
+        // sign-in and must not be blocked by the absence of an OpenClicky API credential.
+        return shellSettings.workEngine == "jax" || shellSettings.workEngine == "codex" || credentials.accountToken != nil || credentials.openAIKey != nil || !credentials.answerSourcesInOrder.isEmpty
     }
 
     /// Where cua-driver is, mirroring the CLI's own precedence (`resolveCuaDriverBin` in

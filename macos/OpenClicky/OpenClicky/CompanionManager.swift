@@ -2516,6 +2516,9 @@ final class CompanionManager: ObservableObject {
             }
         )
 
+        try Task.checkCancellation()
+        if let pointTag = result.pointTag { pointAtAnswerTag(pointTag, screenCaptures: screenCaptures) }
+
         if let threadId = result.threadId {
             lastAgentThreadId = threadId
         }
@@ -2538,7 +2541,7 @@ final class CompanionManager: ObservableObject {
         }
         if !result.artifacts.isEmpty {
             let fileCount = result.artifacts.count
-            spokenText += " i saved \(fileCount) \(fileCount == 1 ? "file" : "files")."
+            spokenText += " \(fileCount) changed \(fileCount == 1 ? "file is" : "files are") linked in your card."
         }
 
         // Keep the teacher lane aware of what the agent did.

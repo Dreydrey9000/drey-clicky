@@ -27,7 +27,9 @@ struct OpenClickyConfigurationTests {
         #expect(OpenClickyConfiguration.isConfigured(OpenClickyShellSettings()))
         var codeEngineWithoutKeys = OpenClickyShellSettings()
         codeEngineWithoutKeys.workEngine = "codex"
-        #expect(!OpenClickyConfiguration.isConfigured(codeEngineWithoutKeys))
+        #expect(OpenClickyConfiguration.isConfigured(codeEngineWithoutKeys))
+        #expect(AccountCapabilities.current(settings: codeEngineWithoutKeys).usesAgent)
+        #expect(!AccountCapabilities.current(settings: codeEngineWithoutKeys).usesRealtime)
     }
 
     @Test func cliEnvironmentCarriesTheUserKeysUnderOpenClickyNames() {

@@ -20,7 +20,10 @@ struct AppleSpeechTranscriptionProviderError: LocalizedError {
 
 final class AppleSpeechTranscriptionProvider: BuddyTranscriptionProvider {
     let displayName = "Apple Speech"
-    let requiresSpeechRecognitionPermission = true
+    var requiresSpeechRecognitionPermission: Bool {
+        if #available(macOS 26, *), !Self.forcesOlderRecognizer { return false }
+        return true
+    }
     let isConfigured = true
     let unavailableExplanation: String? = nil
     /// Dictation's pinned language (Settings → engine), when one is chosen; else the reply language.
@@ -53,6 +56,21 @@ final class AppleSpeechTranscriptionProvider: BuddyTranscriptionProvider {
         }
         guard let speechRecognizer = Self.makeBestAvailableSpeechRecognizer(preferredLocale: preferredLocale) else {
             throw AppleSpeechTranscriptionProviderError(message: "dictation is not available on this mac.")
+        }
+
+        // The on-device analyzer needs no server-recognition consent. A real fallback to the
+        // older recognizer still obtains that consent at first use, never silently bypassing it.
+        let status = SFSpeechRecognizer.authorizationStatus()
+        if status != .authorized {
+            let granted: Bool
+            if status == .notDetermined {
+                granted = await withCheckedContinuation { continuation in
+                    SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0 == .authorized) }
+                }
+            } else { granted = false }
+            guard granted else {
+                throw AppleSpeechTranscriptionProviderError(message: "The on-device model is unavailable, and the older recognizer needs Speech Recognition access in System Settings.")
+            }
         }
 
         return try AppleSpeechTranscriptionSession(

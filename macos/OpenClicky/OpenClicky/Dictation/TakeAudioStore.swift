@@ -14,7 +14,7 @@ import os
 
 final class TakeAudioStore: @unchecked Sendable {
     static let defaultDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Application Support/OpenClicky/TakeAudio")
+        .appendingPathComponent("Library/Application Support/DreyClicky/TakeAudio")
     static let maxRetainedTakes = 100
     static let maxRetainedBytes: UInt64 = 1_000_000_000
     /// A take longer than this is cut off in memory (ten minutes of 16 kHz PCM16 is 19 MB).

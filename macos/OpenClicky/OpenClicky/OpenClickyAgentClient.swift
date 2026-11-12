@@ -18,6 +18,7 @@ struct OpenClickyAgentRunResult {
     var status: String = "unknown"
     var errorMessage: String?
     var spokenSummary: String?
+    var pointTag: String?
 }
 
 /// One Codex thread as reported by `openclicky threads list --json`.
@@ -313,6 +314,7 @@ private final class EventCollector {
             result.text = object["text"] as? String ?? streamedText
             result.status = "completed"
         case "result":
+            result.pointTag = object["pointTag"] as? String
             result.spokenSummary = object["spokenSummary"] as? String
             result.threadId = object["threadId"] as? String
             result.artifacts = object["artifacts"] as? [String] ?? []

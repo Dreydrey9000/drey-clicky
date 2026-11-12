@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
+import path from "node:path";
 import { JsonRpcStdio } from "./jsonrpc.js";
 import { readVersion } from "./version.js";
 import { ensureCodexHome } from "./codexHome.js";
@@ -68,7 +69,8 @@ const WINDOWS_ENV_ALLOWLIST = [
  * for model_providers.openclicky), `OPENCLICKY_OPENAI_KEY` / `OPENCLICKY_ANTHROPIC_KEY`
  * (env_http_headers, bring-your-own-key), and `COMPOSIO_API_KEY` (mcp_servers.composio's consumer
  * key — see codexHome.ts). Provider keys (OPENAI_API_KEY, ANTHROPIC_API_KEY, …) are never on this
- * list: Codex must always go through the OpenClicky backend, never see them directly.
+ * list. Backend mode forwards only its configured headers. ChatGPT mode reuses the existing
+ * account home and forwards no backend credentials; it never rewrites the user config.
  */
 export function buildChildEnv(cfg: AgentConfig, sourceEnv: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
@@ -78,7 +80,8 @@ export function buildChildEnv(cfg: AgentConfig, sourceEnv: NodeJS.ProcessEnv = p
   for (const [key, value] of Object.entries(sourceEnv)) {
     if (key.startsWith("NODE_") && value !== undefined) env[key] = value;
   }
-  env.CODEX_HOME = cfg.codexHome;
+  env.CODEX_HOME = cfg.useCodexPlan ? cfg.codexAccountHome : cfg.codexHome;
+  if (cfg.useCodexPlan) return env;
   env.OPENCLICKY_SESSION_TOKEN = cfg.token ?? "";
   // Bring your own key: the Codex config forwards these as headers (env_http_headers); unset = not sent.
   if (cfg.openaiApiKey) env.OPENCLICKY_OPENAI_KEY = cfg.openaiApiKey;
@@ -132,7 +135,7 @@ export interface TurnSummary {
 
 /**
  * Drives `codex app-server --stdio` the way HeyClicky's CodexProtocolClient does:
- * isolated CODEX_HOME, JSON-RPC over stdio, thread start/resume, turn start, approvals,
+ * isolated backend state or existing ChatGPT sign-in, JSON-RPC over stdio, thread start/resume, approvals,
  * and collection of the final agent message + artifacts.
  */
 export class CodexAgent {
@@ -150,12 +153,18 @@ export class CodexAgent {
   }
 
   async start(): Promise<void> {
-    const { configPath } = ensureCodexHome(this.cfg);
-    this.log(`codex home ${this.cfg.codexHome} (config ${configPath})`);
+    if (this.cfg.useCodexPlan) this.log("using the existing Codex ChatGPT sign-in; account configuration is left unchanged");
+    else {
+      const { configPath } = ensureCodexHome(this.cfg);
+      this.log(`codex home ${this.cfg.codexHome} (config ${configPath})`);
+    }
 
     const env = buildChildEnv(this.cfg);
 
-    const target = spawnTarget(this.cfg.codexBin, ["app-server", "--stdio"], env);
+    const args = this.cfg.useCodexPlan
+      ? ["-c", 'model_provider="openai"', "-c", "sandbox_workspace_write.writable_roots=[]", "app-server", "--stdio"]
+      : ["app-server", "--stdio"];
+    const target = spawnTarget(this.cfg.codexBin, args, env);
     const child = spawn(target.command, target.args, { env, stdio: ["pipe", "pipe", "pipe"], shell: target.shell });
     this.child = child;
     child.stderr.setEncoding("utf8");
@@ -173,10 +182,10 @@ export class CodexAgent {
     rpc.onServerRequest((id, method, params) => void this.handleServerRequest(id, method, params));
 
     await this.race(
-      rpc.request("initialize", {
-        clientInfo: { name: "openclicky", title: "OpenClicky", version: readVersion() },
+      this.withTimeout(rpc.request("initialize", {
+        clientInfo: { name: "drey_clicky", title: "Drey Clicky", version: readVersion() },
         capabilities: { experimentalApi: true },
-      }),
+      }), 15_000, "startup"),
     );
   }
 
@@ -223,6 +232,7 @@ export class CodexAgent {
       cwd: this.cfg.workspace,
       approvalPolicy: this.hooks.onApproval ? "on-request" : "never",
       sandbox: "workspace-write",
+      ...(this.cfg.useCodexPlan ? { modelProvider: "openai" } : {}),
       ...(this.cfg.model ? { model: this.cfg.model } : {}),
     };
   }
@@ -231,6 +241,8 @@ export class CodexAgent {
     const rpc = this.rpc;
     if (!rpc) throw new Error("CodexAgent.start() must be called first");
     const cwd = this.cfg.workspace;
+
+    if (opts.threadId && this.cfg.useCodexPlan) await this.requireWorkspaceThread(opts.threadId);
 
     const started = opts.threadId
       ? await this.race(rpc.request<any>("thread/resume", { threadId: opts.threadId, ...this.threadOptions() }))
@@ -332,8 +344,8 @@ export class CodexAgent {
 
   async listThreads(limit = 20): Promise<ThreadSummary[]> {
     const rpc = this.requireRpc();
-    const res = await this.race(rpc.request<any>("thread/list", { limit, sortKey: "updated_at" }));
-    return (res.data ?? []).map((t: any) => ({
+    const res = await this.race(rpc.request<any>("thread/list", { limit, sortKey: "updated_at", ...(this.cfg.useCodexPlan ? { cwd: this.cfg.workspace } : {}) }));
+    return (res.data ?? []).filter((t: any) => !this.cfg.useCodexPlan || this.sameWorkspace(t.cwd)).map((t: any) => ({
       id: t.id,
       preview: t.preview ?? "",
       cwd: t.cwd ?? "",
@@ -347,6 +359,7 @@ export class CodexAgent {
   async readThread(threadId: string, limit = 50): Promise<{ thread: ThreadSummary; turns: TurnSummary[] }> {
     const rpc = this.requireRpc();
     const read = await this.race(rpc.request<any>("thread/read", { threadId, includeTurns: false }));
+    if (this.cfg.useCodexPlan && !this.sameWorkspace(read.thread?.cwd)) throw new Error("This Codex conversation belongs to another workspace. Select its workspace first.");
     const turns = await this.race(rpc.request<any>("thread/turns/list", { threadId, limit, sortDirection: "asc", itemsView: "full" }));
     const t = read.thread;
     return {
@@ -364,7 +377,17 @@ export class CodexAgent {
   }
 
   async archiveThread(threadId: string): Promise<void> {
+    if (this.cfg.useCodexPlan) await this.requireWorkspaceThread(threadId);
     await this.race(this.requireRpc().request("thread/archive", { threadId }));
+  }
+
+  private sameWorkspace(cwd: unknown): boolean {
+    return typeof cwd === "string" && path.resolve(cwd) === path.resolve(this.cfg.workspace);
+  }
+
+  private async requireWorkspaceThread(threadId: string): Promise<void> {
+    const read = await this.race(this.requireRpc().request<any>("thread/read", { threadId, includeTurns: false }));
+    if (!this.sameWorkspace(read.thread?.cwd)) throw new Error("This Codex conversation belongs to another workspace. Select its workspace first.");
   }
 
   async stop(): Promise<void> {

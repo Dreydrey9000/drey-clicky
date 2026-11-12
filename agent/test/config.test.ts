@@ -7,7 +7,10 @@ describe("resolveConfig", () => {
   it("applies defaults", () => {
     const c = resolveConfig({}, { HOME: "/home/u" });
     expect(c.backendUrl).toBe("https://api.openclicky.org");
-    expect(c.codexHome).toBe("/home/u/.openclicky/codex-home");
+    expect(c.codexHome).toBe("/home/u/.drey-clicky/codex-home");
+    expect(c.userSkillsDir).toBe("/home/u/.drey-clicky/skills");
+    expect(c.useCodexPlan).toBe(true);
+    expect(c.codexAccountHome).toBe("/home/u/.codex");
     expect(c.codexBin).toBe("codex");
     expect(c.workspace).toBe(process.cwd());
     expect(c.token).toBeUndefined();
@@ -28,6 +31,14 @@ describe("resolveConfig", () => {
     const root = repoRoot();
     expect(fs.existsSync(path.join(root, "skills", "ModelInstructions.md"))).toBe(true);
     expect(fs.existsSync(path.join(root, "config", "codex-config.toml"))).toBe(true);
+  });
+  it("uses the existing Codex account only when backend credentials are absent or explicitly requested", () => {
+    expect(resolveConfig({}, { HOME: "/h", OPENCLICKY_TOKEN: "t" }).useCodexPlan).toBe(false);
+    expect(resolveConfig({}, { HOME: "/h", OPENCLICKY_OPENAI_KEY: "k" }).useCodexPlan).toBe(false);
+    expect(resolveConfig({}, { HOME: "/h", DREY_CLICKY_CODEX_AUTH: "backend" }).useCodexPlan).toBe(false);
+    const c = resolveConfig({}, { HOME: "/h", CODEX_HOME: "/account", DREY_CLICKY_CODEX_AUTH: "chatgpt", OPENCLICKY_TOKEN: "t" });
+    expect(c.useCodexPlan).toBe(true);
+    expect(c.codexAccountHome).toBe("/account");
   });
 
   describe("runTimeoutMs", () => {
