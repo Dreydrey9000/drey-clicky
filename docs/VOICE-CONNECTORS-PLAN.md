@@ -1,6 +1,6 @@
 # Optional voice connectors
 
-Two independent opt-ins let an existing Wispr Flow or Omi app type into Clicky's prompt. Both may be enabled. This is local voice-input interoperability, not an account-data connection or an embedded transcription API. Omi memories/meeting context require a separately authorized data connection; that scope is awaiting clarification. The implemented user guide is [VOICE-CONNECTORS.md](VOICE-CONNECTORS.md).
+Two independent opt-ins let an existing Wispr Flow or Omi app type into Clicky's prompt. Both may be enabled. The requested scope is voice typing from both apps. This is local voice-input interoperability, not an account-data connection or an embedded transcription API. Omi memories/meeting context are outside this change. The implemented user guide is [VOICE-CONNECTORS.md](VOICE-CONNECTORS.md).
 
 | Outcome | Interface | State/storage | Permissions/integration | Recovery and verification |
 |---|---|---|---|---|
