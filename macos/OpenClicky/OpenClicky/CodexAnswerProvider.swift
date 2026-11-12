@@ -17,7 +17,7 @@
 //
 //  Why these flags:
 //    - It uses the person's own login: CODEX_HOME is removed from the environment so the default
-//      ~/.codex is read, never OpenClicky's agent home (~/.openclicky/codex-home).
+//      ~/.codex is read, never OpenClicky's agent home (~/.drey-clicky/codex-home).
 //    - `--ignore-user-config` skips ~/.codex/config.toml (auth still comes from CODEX_HOME). With
 //      the person's config, plugins and skills loaded, a one-word answer took 34 s and ran shell
 //      commands to read skill files; without it, 6 s and no commands.

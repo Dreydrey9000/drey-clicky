@@ -2,7 +2,7 @@
 //  ReplyLanguage.swift
 //  OpenClicky
 //
-//  The one language OpenClicky speaks, from `language` in ~/.openclicky/shell.json (Settings →
+//  The one language OpenClicky speaks, from `language` in ~/.drey-clicky/shell.json (Settings →
 //  Voice → Language), English until another is chosen.
 //
 //  The Realtime prompt used to say "Speak English unless the user speaks another language", and

@@ -8,7 +8,6 @@ cd "$repo_root"
 npm run build -w agent
 xcodebuild -project macos/OpenClicky/OpenClicky.xcodeproj -scheme OpenClicky \
   -configuration Debug -destination 'platform=macOS,arch=arm64' \
-  -enableCodeCoverage NO \
   -derivedDataPath "$repo_root/.build/native" -clonedSourcePackagesDirPath "$repo_root/.build/packages" \
   -jobs 2 build CODE_SIGNING_ALLOWED=NO
 app_path="$repo_root/.build/native/Build/Products/Debug/Drey Clicky.app"

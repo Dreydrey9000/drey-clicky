@@ -64,10 +64,10 @@ extension SettingsCatalog {
                 view: AnyView(ProviderKeysList())),
             SettingsItem(
                 id: "account.keysNote",
-                title: "Where keys go", detail: "Your keys go straight to that provider, never through OpenClicky, and are used instead of the free credits. Stored in ~/.openclicky/shell.json.",
+                title: "Where keys go", detail: "Keys added here are stored in ~/.drey-clicky/shell.json and used by your selected provider route. Backend routes receive them per request. Jax keeps its own account configuration.",
                 keywords: ["shell.json", "byok"],
                 chrome: .footer,
-                view: AnyView(SettingsFootnote(text: "Your keys go straight to that provider, never through OpenClicky, and are used instead of the free credits. Stored in ~/.openclicky/shell.json."))),
+                view: AnyView(SettingsFootnote(text: "Keys added here are stored in ~/.drey-clicky/shell.json and used by your selected provider route. Backend routes receive them per request. Jax keeps its own account configuration."))),
             SettingsItem(
                 id: "account.claudeCodePlan",
                 title: "Claude Code (your Claude plan)", detail: "Answer questions through Claude Code, signed in to your Claude plan.",
@@ -412,7 +412,7 @@ private struct ProviderKeysList: View {
                 get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } })) {
                 Button("Remove", role: .destructive) { if let pendingRemoval { remove(pendingRemoval) } }
             } message: {
-                Text("It’s deleted from ~/.openclicky/shell.json. Keep a copy if you’ll need it again.")
+                Text("It’s deleted from ~/.drey-clicky/shell.json. Keep a copy if you’ll need it again.")
             }
         }
     }

@@ -12,10 +12,14 @@ const config = read("macos/OpenClicky/OpenClicky/OpenClickyConfiguration.swift")
 assert(config.includes("~/.drey-clicky/shell.json"));
 assert(read("macos/OpenClicky/OpenClicky/Dictation/DictationSpace.swift").includes("~/.drey-clicky/dictation"));
 assert(read("macos/OpenClicky/OpenClicky/Dictation/TakeAudioStore.swift").includes("Application Support/DreyClicky/TakeAudio"));
-for (const name of ["macos/OpenClicky/OpenClicky/Dictation/UI/SettingsPrivacyPage.swift", "macos/OpenClicky/OpenClicky/RealtimeVoiceClient.swift"]) assert(!read(name).includes("~/.openclicky/shell.json"));
+for (const name of ["macos/OpenClicky/OpenClicky/Dictation/UI/SettingsPrivacyPage.swift", "macos/OpenClicky/OpenClicky/Dictation/UI/SettingsAccountPage.swift", "macos/OpenClicky/OpenClicky/RealtimeVoiceClient.swift"]) assert(!read(name).includes("~/.openclicky/shell.json"));
 const cliConfig = read("agent/src/config.ts");
 assert(cliConfig.includes('path.join(home, ".drey-clicky", "codex-home")'));
 assert(cliConfig.includes('path.join(home, ".drey-clicky", "skills")'));
+const welcome = read("macos/OpenClicky/OpenClicky/FirstRunTour.swift");
+assert(welcome.includes("meet Drey Clicky") && welcome.includes("ask Jax about your screen"), "First use must introduce the new task route in plain language");
+assert(!welcome.includes("startGuestWithoutEmail"), "The fork welcome must not create an upstream account");
+assert(!welcome.includes("performTourDemo"), "The fork welcome waits for an explicit screen request");
 assert(read("README.md").includes("docs/diagrams/architecture"), "Link the actual architecture from README");
 for (const file of ["docs/DREY-CLICKY.md", "docs/COMPARISON.md", "docs/diagrams/architecture.mmd", "docs/UI-STANDARD.md"]) assert(read(file).length > 100, `${file} must be useful`);
 console.log("PASS: fork identity, isolated settings, updater safety, architecture and release documentation");

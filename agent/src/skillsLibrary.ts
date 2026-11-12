@@ -1,9 +1,9 @@
 /**
  * The user's skill library on disk (shared with the macOS app's SkillLibraryStore — keep the layout in sync):
  *
- *   ~/.openclicky/skills/library/<id>/SKILL.md   every user skill
- *   ~/.openclicky/skills/activations.json         { active: [ids], updatedAt }
- *   ~/.openclicky/skills/active/<id> → library/<id>   symlinks for activated skills only; Codex loads this dir
+ *   ~/.drey-clicky/skills/library/<id>/SKILL.md   every user skill
+ *   ~/.drey-clicky/skills/activations.json         { active: [ids], updatedAt }
+ *   ~/.drey-clicky/skills/active/<id> → library/<id>   symlinks for activated skills only; Codex loads this dir
  */
 import fs from "node:fs";
 import path from "node:path";

@@ -11,7 +11,7 @@
 //
 //  App-teaching skills are read-only here and matched by frontmost app: the ones inside the app
 //  (`Contents/Resources/app-skills`), plus a local folder (a checkout's `app-skills/` or
-//  `~/.openclicky/app-skills`) whose skills add to them and win over a bundled one with the same id.
+//  `~/.drey-clicky/app-skills`) whose skills add to them and win over a bundled one with the same id.
 //
 
 import Combine

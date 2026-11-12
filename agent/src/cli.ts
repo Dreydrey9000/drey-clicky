@@ -588,7 +588,7 @@ withCommonOptions(
   }
 });
 
-const skills = program.command("skills").description("the user's skill library (~/.openclicky/skills): activated skills apply to talk and agent runs");
+const skills = program.command("skills").description("the user's skill library (~/.drey-clicky/skills): activated skills apply to talk and agent runs");
 
 skills
   .command("list")

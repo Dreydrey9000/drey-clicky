@@ -16,7 +16,7 @@ November 12, 2026. Local developer preview. Successful builds, fixture checks, l
 | Apple speech consent | VERIFIED | On macOS 26 the on-device analyzer does not require the legacy speech-recognition consent. The older recognizer fallback requests/checks that consent when used. No TCC database changes or consent bypass. |
 | Installed preview | PASS | Updated /Applications/Drey Clicky.app, ad-hoc signed and verified; previous task-built preview retained privately for rollback. Stable signing/notarization for distribution remains open. |
 | Live hotkey/microphone conversation | HUMAN CHECK | The fixture proves the pipeline. A person still needs to speak a request through the installed app and confirm the real microphone, screen, pointing and final voice experience. |
-| Fresh independent consumer | PASS ON INITIAL VERSION | Clean git-archive checkout: npm ci, agent build, handshake and workflow fixture. Later changes have local tests and their own live receipts; this earlier checkout is not presented as a fresh check of later code. |
+| Fresh independent consumer | PASS ON 53346b2 | Clean git-archive checkout: npm ci, agent build, MCP handshake, fixture task, exact created-file content and artifact link; scratch removed after receipts. Subsequent welcome/copy/build-script changes have their own native checks. |
 | QuickSilver loop 1 | PASS | Delayed classifier median 4006 to 2503 ms; request abortion and heuristic fallback. Synthetic comparison, not a competitor benchmark. |
 | QuickSilver loop 2 | PASS | Artifact stat attempts now capped at 20,000; explicit truncation. Flat 25,000-file fixture median 153.27 to 117.93 ms (23.1%). Incomplete Jax scans withhold automatic links. |
 | RAMsey | PASS | Three read-only resource checks; latest normal pressure, about 13 GiB disk free, nominal thermal state, AC power. Only task-owned VoiceOS was closed; unrelated jobs remained protected. |
@@ -35,6 +35,8 @@ November 12, 2026. Local developer preview. Successful builds, fixture checks, l
 - Codex can use an existing ChatGPT login without writing account config, while keeping own-key/backend compatibility and limiting history access to the active workspace.
 - Personal settings, dictionary, shortcuts, saved take audio, user skills and backend-mode Codex state have fork-specific paths. Installed model caches can remain shared.
 - Unique bundle identity, disabled upstream updater, preserved Swift module imports, source rules and isolated local history are checked.
+- The first-use welcome explains Jax after permissions, keeps existing once-per-user tour behavior, skips the old automatic screen/backend demo and never creates an upstream guest account.
+- The documented native build command was executed: a test-only coverage flag was removed from the ordinary build script. Account settings copy now describes the actual key storage and backend route.
 
 Private reports retain original failures and final receipts. No personal configuration backup, desktop screenshot, message, key or raw REA metadata token is committed. The Jax vision check required changing only the existing profile's image_input_mode from auto to native; its primary model/provider stayed unchanged, with a private rollback copy.
 

@@ -195,7 +195,7 @@ final class CompanionManager: ObservableObject {
     }
 
     let realtimeVoiceClient = RealtimeVoiceClient()
-    /// The user's skill library (~/.openclicky/skills) plus the bundled app-teaching skills.
+    /// The user's skill library (~/.drey-clicky/skills) plus the bundled app-teaching skills.
     let skillLibraryStore = SkillLibraryStore()
     private var realtimeLevelCancellable: AnyCancellable?
     private var didGreetRealtime = false

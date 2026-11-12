@@ -704,7 +704,7 @@ final class CompanionAppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         #endif
-        // OpenClicky: launching at login is opt-in (`registerAsLoginItem` in ~/.openclicky/shell.json).
+        // OpenClicky: launching at login is opt-in (`registerAsLoginItem` in ~/.drey-clicky/shell.json).
         if OpenClickyConfiguration.settings.registerAsLoginItem == true {
             registerAsLoginItemIfNeeded()
         }

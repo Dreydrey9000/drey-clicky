@@ -173,7 +173,9 @@ final class FirstRunTourController: ObservableObject {
             .sink { [weak self] flow in DispatchQueue.main.async { self?.emailFlowChanged(flow) } }
             .store(in: &cancellables)
         // Whether new accounts are taken decides if the account step is offered at all.
-        Task { await OpenClickyAuthSession.shared.refreshAccountsOpen() }
+        if !OpenClickyConfiguration.usesJax && OpenClickyConfiguration.hasAccountToken {
+            Task { await OpenClickyAuthSession.shared.refreshAccountsOpen() }
+        }
     }
 
     private func takeFinished(_ take: TakeRecord) {
@@ -222,7 +224,9 @@ final class FirstRunTourController: ObservableObject {
 
     /// The offline engine needs Speech Recognition, which macOS asks for on first use.
     private var speechNeedsAllowing: Bool {
-        companionManager?.dictationSettings.engine == .offline && SFSpeechRecognizer.authorizationStatus() == .notDetermined
+        companionManager?.dictationSettings.engine == .offline
+            && AppleSpeechTranscriptionProvider().requiresSpeechRecognitionPermission
+            && SFSpeechRecognizer.authorizationStatus() == .notDetermined
     }
     private var speechWasUndeterminedAtTakeStart = false
 
@@ -299,7 +303,8 @@ final class FirstRunTourController: ObservableObject {
     /// AI subscription the person already pays for can be used instead by adding its key.
     private var needsFreeAccountNote: Bool {
         // Questions are answered on OpenClicky's credits (no key or plan of their own answers).
-        ProviderRouter.route(for: .claude, credentials: ProviderRouter.currentCredentials()) == .backend
+        !OpenClickyConfiguration.usesJax && OpenClickyConfiguration.hasAccountToken
+            && ProviderRouter.route(for: .claude, credentials: ProviderRouter.currentCredentials()) == .backend
     }
 
     /// No key and no account (the guest start did not work): the account card asks for an email
@@ -399,29 +404,16 @@ final class FirstRunTourController: ObservableObject {
                 guard let self, self.step == .meet else { return }
                 self.companionManager?.pointAtTourPrimaryButton(saying: "tap let’s go")
             }
-            // Nothing to type to get going: a Mac with no key and no account starts as a guest on
-            // OpenClicky's credits, so asking and tasks work in this very tour.
-            if !OpenClickyConfiguration.isConfigured {
-                Task { [weak self] in
-                    await OpenClickyAuthSession.shared.startGuestWithoutEmail()
-                    self?.publish()
-                }
-            }
+            // Drey Clicky uses the existing Jax/Codex account. The welcome never creates an
+            // upstream account; account setup remains an explicit Settings action.
         case .dictate:
             if companionManager?.dictationSettings.dictationKey == .fn && !speechNeedsAllowing {
                 companionManager?.recordedVoice.play(.tourDictate)
             }
         case .talk:
-            if OpenClickyConfiguration.isConfigured, let companionManager {
-                // Watch first: Clicky points at something and says a few words, then it's your turn.
-                isShowingDemo = true
-                companionManager.performTourDemo { [weak self] in
-                    guard let self, self.step == .talk, self.isShowingDemo else { return }
-                    self.isShowingDemo = false
-                    companionManager.recordedVoice.play(.tourTalk)
-                    self.publish()
-                }
-            }
+            // Wait for the person's hotkey request; do not send their screen through the old
+            // backend demonstration automatically during the new Jax/Codex welcome.
+            companionManager?.recordedVoice.play(.tourTalk)
         case .act:
             if OpenClickyConfiguration.isConfigured { companionManager?.recordedVoice.play(.tourAct) }
         case .account:
@@ -625,8 +617,8 @@ final class FirstRunTourController: ObservableObject {
         switch step {
         case .meet:
             return FirstRunTourCard(
-                step: .meet, title: "hi, i’m clicky",
-                detail: "your pointer’s new sidekick. i’ll show you three things. it takes about a minute.",
+                step: .meet, title: "meet Drey Clicky",
+                detail: "hold Control + Option to ask Jax about your screen. hear replies; see details in the card.",
                 symbol: "hand.wave.fill",
                 primaryTitle: "let’s go", secondaryTitle: "skip tour")
         case .dictate where speechNeedsAllowing:

@@ -5,7 +5,7 @@
 //  A Hermes-style SKILL.md: YAML frontmatter (flat keys, inline `[a, b]` lists) followed by a
 //  Markdown body. Mirrors agent/src/skillMarkdown.ts so the app, the CLI, and the backend agree on
 //  what a skill is. Used for the app-teaching skills in `app-skills/` and the user library in
-//  `~/.openclicky/skills/library`.
+//  `~/.drey-clicky/skills/library`.
 //
 
 import Foundation

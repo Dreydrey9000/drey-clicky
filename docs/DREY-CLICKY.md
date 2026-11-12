@@ -39,6 +39,8 @@ Create `~/.drey-clicky/shell.json` outside the repository. Use absolute paths; r
 
 Grant Microphone, Screen Recording, Screen Content and Accessibility to **Drey Clicky** when macOS asks. On macOS 26 the on-device Apple analyzer does not require the legacy Speech Recognition consent. Older systems and the legacy recognizer fallback request that consent when needed. Reopen after Screen Recording changes. Do not grant the old app on the fork's behalf. Stable signing is needed before distributing to other Macs; re-signing an existing bundle with a different identity can invalidate grants.
 
+The first-use welcome introduces Jax and the hotkey in plain language after permissions. It uses the existing once-per-user tour state, can be replayed from Settings, and does not create an upstream guest account or send a screen demonstration automatically.
+
 Hold Control + Option, speak, then release. Escape/stop interrupts. The native path sends its captured cursor-screen image and available selected text to Jax; password fields are excluded by the existing selection reader. No selection is fabricated when Accessibility cannot read it. The selected passage uses the native reader's bounded context (currently 600 characters). Short summaries are spoken; full answers remain in the result card. When Jax confidently locates a target, it can return one screenshot-space pointer. The bridge validates its bounds before the native overlay maps it onto the display. Pointer metadata is kept out of the spoken answer and full text. A pointer never clicks or grants approval.
 
 ## Context, conversations and fallback
