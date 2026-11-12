@@ -32,7 +32,7 @@ The Jax route uses your configured account. No keys ship in this repository. The
 
 ## Architecture and verification
 
-[Editable architecture diagram](docs/diagrams/architecture.mmd) · [Rendered diagram](docs/diagrams/architecture.svg)
+[Editable architecture diagram](docs/diagrams/architecture.mmd) · [Rendered diagram](docs/diagrams/architecture.png) · [SVG](docs/diagrams/architecture.svg)
 
 ```mermaid
 flowchart LR
