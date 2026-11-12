@@ -1,0 +1,15 @@
+import fs from "node:fs";
+import assert from "node:assert/strict";
+const read = name => fs.readFileSync(new URL(`../${name}`, import.meta.url), "utf8");
+const plist = read("macos/OpenClicky/OpenClicky/Info.plist");
+assert(!plist.includes("SUPublicEDKey"), "A public fork must not reuse upstream update signing keys");
+assert(!plist.includes("prasanthsasikumar/openclicky/releases"), "A fork must not download upstream updates");
+assert(plist.includes("DreyClickyUpdatesEnabled"));
+const project = read("macos/OpenClicky/OpenClicky.xcodeproj/project.pbxproj");
+assert(project.includes("com.dreytools.clicky.debug"), "Debug permissions must be isolated");
+assert(!project.includes("PRODUCT_BUNDLE_IDENTIFIER = org.openclicky.app"));
+const config = read("macos/OpenClicky/OpenClicky/OpenClickyConfiguration.swift");
+assert(config.includes("~/.drey-clicky/shell.json"));
+assert(read("README.md").includes("docs/diagrams/architecture"), "Link the actual architecture from README");
+for (const file of ["docs/DREY-CLICKY.md", "docs/COMPARISON.md", "docs/diagrams/architecture.mmd", "docs/UI-STANDARD.md"]) assert(read(file).length > 100, `${file} must be useful`);
+console.log("PASS: fork identity, isolated settings, updater safety, architecture and release documentation");

@@ -2,7 +2,7 @@
 //  AppLog.swift
 //  OpenClicky
 //
-//  A plain-text log at ~/Library/Logs/OpenClicky/app.log. The app is launched from Finder, so its
+//  A plain-text log at ~/Library/Logs/DreyClicky/app.log. The app is launched from Finder, so its
 //  stdout goes nowhere; when the buddy points at the wrong thing, this is where the `point_at` line
 //  (the model's guess, what it snapped to, or what Claude answered) can be read afterwards.
 //
@@ -15,7 +15,7 @@ nonisolated enum AppLog {
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
             return FileManager.default.temporaryDirectory.appendingPathComponent("openclicky-tests.log")
         }
-        return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/OpenClicky/app.log")
+        return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/DreyClicky/app.log")
     }()
     /// Truncated at launch when it has grown past this.
     private static let maxBytesBeforeTruncation: UInt64 = 2_000_000

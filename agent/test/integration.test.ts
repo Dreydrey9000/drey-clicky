@@ -97,9 +97,9 @@ describe.skipIf(!hasCodex)("CodexAgent (real codex, fake model)", () => {
     try {
       await agent.start();
       const r1 = await agent.run("create a file called hello.txt containing 'hi'");
-      const first = requests.find((r) => r.body.instructions)!;
+      const first = requests.find((r) => Array.isArray(r.body.input) && typeof r.body.model === "string")!;
       expect(first.body.model).toBe("gpt-5.2");
-      expect(first.body.instructions).toMatch(/^You are OpenClicky's temporary Codex agent mode\./); // skills/ModelInstructions.md
+      expect(first.body.instructions ?? first.body.input.filter((item: any) => item.role === "developer").flatMap((item: any) => item.content ?? []).map((part: any) => part.text ?? "").join("\n")).toMatch(/^You are OpenClicky's temporary Codex agent mode\./); // skills/ModelInstructions.md
       expect(JSON.stringify(first.body)).toContain("openclicky-artifacts"); // skills/ loaded via [[skills.config]]
       expect(r1.status).toBe("completed");
       expect(r1.error).toBeUndefined();
@@ -114,7 +114,7 @@ describe.skipIf(!hasCodex)("CodexAgent (real codex, fake model)", () => {
       expect(r2.threadId).toBe(r1.threadId);
       expect(r2.status).toBe("completed");
       expect(r2.finalMessage).toBe("ack: what did you just do?");
-      const resumed = requests.slice(seenBeforeResume).find((r) => r.body.instructions)!;
+      const resumed = requests.slice(seenBeforeResume).find((r) => Array.isArray(r.body.input) && typeof r.body.model === "string")!;
       const texts = JSON.stringify(resumed.body.input);
       expect(texts).toContain("hello.txt"); // prior turn is in the resumed context
       expect(texts).toContain("what did you just do?");
@@ -181,7 +181,7 @@ describe.skipIf(!hasCodex)("CodexAgent (real codex, fake model)", () => {
       const before = requests.length;
       const r2 = await agent.run("describe this", { threadId: r.threadId, imagePath: png });
       expect(r2.status).toBe("completed");
-      const req = requests.slice(before).find((x) => x.body.instructions)!;
+      const req = requests.slice(before).find((x) => Array.isArray(x.body.input) && typeof x.body.model === "string")!;
       expect(JSON.stringify(req.body.input)).toContain("input_image");
     } finally {
       await agent.stop();

@@ -21,14 +21,12 @@
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>OpenClicky uses speech recognition to transcribe your voice when you talk to it</string>
 	<key>SUEnableAutomaticChecks</key>
-	<true/>
-	<key>SUFeedURL</key>
-	<string>https://github.com/prasanthsasikumar/openclicky/releases/latest/download/appcast.xml</string>
-	<key>SUPublicEDKey</key>
-	<string>Dgr1iPs5GdoIt9pHsGJ3Kl/89sd8FPW/LalSsQTmKec=</string>
+	<false/>
+	<key>DreyClickyUpdatesEnabled</key>
+	<false/>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
 	<key>VoiceTranscriptionProvider</key>
-	<string>assemblyai</string>
+	<string>apple</string>
 </dict>
 </plist>

@@ -61,7 +61,7 @@ final class ShelfStore: ObservableObject {
 
     static var defaultDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/OpenClicky/Shelf", isDirectory: true)
+            .appendingPathComponent("Library/Application Support/DreyClicky/Shelf", isDirectory: true)
     }
 
     @Published private(set) var items: [ShelfItem] = []

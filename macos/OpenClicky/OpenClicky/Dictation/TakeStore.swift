@@ -65,7 +65,7 @@ struct TakeStats: Equatable {
 
 final class TakeStore: @unchecked Sendable {
     static let defaultFileURL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Application Support/OpenClicky/dictation.sqlite")
+        .appendingPathComponent("Library/Application Support/DreyClicky/dictation.sqlite")
 
     private var database: OpaquePointer?
     private let queue = DispatchQueue(label: "org.openclicky.take-store")

@@ -24,7 +24,10 @@ struct OpenClickyConfigurationTests {
         signedIn.token = "tok"
         #expect(OpenClickyConfiguration.isConfigured(signedIn))
         #expect(!OpenClickyConfiguration.usesOwnKeys(OpenClickyShellSettings()))
-        #expect(!OpenClickyConfiguration.isConfigured(OpenClickyShellSettings()))
+        #expect(OpenClickyConfiguration.isConfigured(OpenClickyShellSettings()))
+        var codeEngineWithoutKeys = OpenClickyShellSettings()
+        codeEngineWithoutKeys.workEngine = "codex"
+        #expect(!OpenClickyConfiguration.isConfigured(codeEngineWithoutKeys))
     }
 
     @Test func cliEnvironmentCarriesTheUserKeysUnderOpenClickyNames() {

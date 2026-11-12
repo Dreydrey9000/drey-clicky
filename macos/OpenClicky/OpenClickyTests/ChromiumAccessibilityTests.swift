@@ -47,7 +47,10 @@ struct ChromiumAccessibilityTests {
     /// The installed Chrome, when this Mac has one: the real layout, not the one the tests drew.
     @Test func theInstalledChromeIsRecognised() {
         let chromeURL = URL(fileURLWithPath: "/Applications/Google Chrome.app")
-        guard FileManager.default.fileExists(atPath: chromeURL.path) else { return }
+        // Some hosts retain a broken app shim after removing a test browser. That is not an
+        // installed Chrome; do not install or launch a browser to satisfy this optional probe.
+        guard let executableURL = Bundle(url: chromeURL)?.executableURL,
+              FileManager.default.isExecutableFile(atPath: executableURL.path) else { return }
         #expect(ChromiumAccessibility.isChromiumBased(bundleURL: chromeURL))
     }
 }

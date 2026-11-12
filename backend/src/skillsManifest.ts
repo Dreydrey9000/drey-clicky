@@ -53,6 +53,33 @@ export const SKILLS_MANIFEST: SkillManifestEntry[] = [
     ]
   },
   {
+    "id": "drey-1bb",
+    "name": "drey-1bb",
+    "description": "Prepare 1BB task summaries and reviewable work through existing authorized Jax tools.",
+    "kind": "capability",
+    "files": [
+      "SKILL.md"
+    ]
+  },
+  {
+    "id": "drey-calendar",
+    "name": "drey-calendar",
+    "description": "Prepare a calendar lookup or event draft through the existing Jax tools, with the user's account and timezone confirmed.",
+    "kind": "capability",
+    "files": [
+      "SKILL.md"
+    ]
+  },
+  {
+    "id": "drey-content",
+    "name": "drey-content",
+    "description": "Turn selected text or screen context into a content draft without publishing or crossing client boundaries.",
+    "kind": "capability",
+    "files": [
+      "SKILL.md"
+    ]
+  },
+  {
     "id": "figma",
     "name": "Figma",
     "description": "Teaching notes for Figma — toolbar, layers panel, properties panel, prototyping, exporting, and what to point at.",

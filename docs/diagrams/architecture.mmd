@@ -1,0 +1,21 @@
+flowchart TD
+    User[User holds Control + Option or types a request] --> App[Native SwiftUI companion]
+    App --> Voice[Apple speech recognition]
+    App --> Context[ScreenCaptureKit image and Accessibility selection]
+    Voice --> CLI[Drey Clicky CLI]
+    Context --> CLI
+    CLI -->|Default engine| Client[MCP client with bounded connection and cancellation]
+    Client --> Bridge[Local jax_run MCP task bridge]
+    Bridge --> Jax[Existing Jax CLI and user profile]
+    Jax --> Tools[Existing Jax tools and approval rules]
+    Jax --> Reply[Result receipt: full answer and short speech]
+    Reply --> App
+    App --> Card[Full answer card]
+    App --> TTS[Mac system voice or configured voice provider]
+    CLI -->|Explicit engine codex| Codex[Original Codex adapter]
+    Codex --> Provider[Own key or configured OpenClicky backend]
+    CLI -->|Original do route| Gate[Model classifier with 2.5 second deadline]
+    Gate -->|Unavailable| Heuristic[Local heuristic]
+    Bridge -. No automatic replay after dispatch .-> Error[Action outcome may be uncertain: inspect before retry]
+    Context -. Untrusted evidence, never approval .-> Bridge
+    Research[Public VoiceOS docs and local REA inspection] -. Comparison only .-> Notes[Comparison and verification records]

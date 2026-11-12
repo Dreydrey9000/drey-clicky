@@ -1,0 +1,36 @@
+{
+  "label": "fast-response",
+  "node": "v22.22.3",
+  "scenario": "loopback gate response delayed 0 ms",
+  "samples": [
+    {
+      "milliseconds": 20.07,
+      "gated": true,
+      "lane": "ask"
+    },
+    {
+      "milliseconds": 4.43,
+      "gated": true,
+      "lane": "ask"
+    },
+    {
+      "milliseconds": 4.77,
+      "gated": true,
+      "lane": "ask"
+    },
+    {
+      "milliseconds": 2.96,
+      "gated": true,
+      "lane": "ask"
+    },
+    {
+      "milliseconds": 3.89,
+      "gated": true,
+      "lane": "ask"
+    }
+  ],
+  "medianMs": 4.43,
+  "p95Ms": 20.07,
+  "calls": 5,
+  "abortedResponses": 0
+}

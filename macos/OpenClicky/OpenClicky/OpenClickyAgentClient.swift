@@ -17,6 +17,7 @@ struct OpenClickyAgentRunResult {
     var threadId: String?
     var status: String = "unknown"
     var errorMessage: String?
+    var spokenSummary: String?
 }
 
 /// One Codex thread as reported by `openclicky threads list --json`.
@@ -96,9 +97,19 @@ final class OpenClickyAgentClient {
         task: String,
         screenshotPath: String?,
         threadId: String?,
+        selectedText: String? = nil,
         onEvent: @escaping @MainActor (String) -> Void
     ) async throws -> OpenClickyAgentRunResult {
         var arguments = ["run", task, "--events", "--cwd", OpenClickyConfiguration.workspacePath]
+        arguments += ["--engine", OpenClickyConfiguration.usesJax ? "jax" : "codex"]
+        var selectionURL: URL?
+        if let selectedText, !selectedText.isEmpty {
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("drey-clicky-selection-\(UUID().uuidString).txt")
+            try selectedText.write(to: url, atomically: true, encoding: .utf8)
+            selectionURL = url
+            arguments += ["--selected-text-file", url.path]
+        }
+        defer { if let selectionURL { try? FileManager.default.removeItem(at: selectionURL) } }
         if let screenshotPath { arguments += ["--image", screenshotPath] }
         if let threadId { arguments += ["--thread", threadId] }
         if let model = OpenClickyConfiguration.agentModelOverride { arguments += ["--model", model] }
@@ -302,6 +313,7 @@ private final class EventCollector {
             result.text = object["text"] as? String ?? streamedText
             result.status = "completed"
         case "result":
+            result.spokenSummary = object["spokenSummary"] as? String
             result.threadId = object["threadId"] as? String
             result.artifacts = object["artifacts"] as? [String] ?? []
             result.status = object["status"] as? String ?? "completed"

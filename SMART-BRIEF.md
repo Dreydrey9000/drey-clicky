@@ -1,0 +1,11 @@
+# Drey Clicky · overnight brief
+
+Date: November 12, 2026, America/New_York. Target: first usable developer build by 07:00.
+
+- **Specific:** An attributed public OpenClicky fork with a native Mac voice/screen companion, Jax as its work engine over MCP, Codex available for code, selected-text context, spoken summaries and full answer cards. Preserve the working upstream UI until a visual direction is selected. No paid trials, purchases, signing enrollment, or unrelated project changes.
+- **Measurable:** M1 public fork and pushed source; M2 TypeScript typecheck/build/tests; M3 native Mac build and scoped unit tests; M4 actual MCP handshake and Jax request with a harmless fixture image; M5 cancellation, missing dependency, timeout, context isolation and no-double-dispatch regressions; M6 reproducible QuickSilver before/after plus two RAMsey readings; M7 setup guide, accurate diagram, comparison and morning report; M8 local app launch and permission/voice/screen checks, explicitly naming any human permission step; M9 completion text only if exact wording/recipient approved and first-test checks pass.
+- **Achievable:** GitHub account verified and public fork created. Xcode 26.6, Node, npm, Jax CLI, imsg and REA 6.4.0 exist. The existing Jax MCP exposes messaging, so build a local task bridge to its verified one-shot image-capable CLI. macOS grants, a VoiceOS trial login, and a design/text choice may require Drey. No credential values enter source or reports.
+- **Relevant:** Talk to the Mac with screen context; Jax does useful work without losing review of outbound messages or silently replaying an action after a transport failure.
+- **Time-bound:** One heavyweight build at a time; at most three improvement passes per failing stage; stop at a repeatable green result, a human-only blocker or 07:00. Keep original failures and final receipts. Unknown live workloads remain untouched. No autonomous self-modification of the approval policy.
+
+Assumptions: REA means morluto/rea; VoiceOS means voiceos.com. The user can correct either. Comparative superiority remains unproven until the same tasks are measured. Design and completion SMS remain conditional on the pending choice; these do not stop independent engineering work.

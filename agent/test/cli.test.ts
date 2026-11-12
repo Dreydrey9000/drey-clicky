@@ -23,7 +23,7 @@ const signInRequests: Array<{ email: string; password: string }> = [];
 
 function runCli(args: string[], env: Record<string, string> = {}): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const p = spawn(tsx, [cli, ...args], { env: { ...process.env, BACKEND_URL: url, OPENCLICKY_TOKEN: "cli-token", OPENCLICKY_CODEX_HOME: fs.mkdtempSync(path.join(os.tmpdir(), "oc-cli-home-")), ...env } });
+    const p = spawn(tsx, [cli, ...args], { env: { ...process.env, DREY_CLICKY_ENGINE: "codex", BACKEND_URL: url, OPENCLICKY_TOKEN: "cli-token", OPENCLICKY_CODEX_HOME: fs.mkdtempSync(path.join(os.tmpdir(), "oc-cli-home-")), ...env } });
     let stdout = "";
     let stderr = "";
     p.stdout.on("data", (d) => (stdout += d));

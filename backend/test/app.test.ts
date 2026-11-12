@@ -214,7 +214,8 @@ describe("app", () => {
     const r = await call("/skills/library", { headers: { authorization: `Bearer ${await jwt()}` } });
     expect(r.status).toBe(200);
     const { skills } = (await r.json()) as { skills: { id: string; name: string; description: string; kind: string; files: string[] }[] };
-    expect(skills.filter((s) => s.kind !== "app").length).toBe(15); // agent skills; app-teaching skills are extra
+    expect(skills.filter((s) => s.kind !== "app").length).toBe(18); // inherited agent skills plus Drey's three workflows
+    expect(skills.map((s) => s.id)).toEqual(expect.arrayContaining(["drey-calendar", "drey-content", "drey-1bb"]));
     const artifacts = skills.find((s) => s.id === "openclicky-artifacts")!;
     expect(artifacts.name).toBe("openclicky-artifacts");
     expect(artifacts.kind).toBe("workflow");

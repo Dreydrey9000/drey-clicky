@@ -20,13 +20,15 @@ struct AccountCapabilities: Equatable {
     let kind: AccountKind
     /// A key that runs realtime voice on its own (a Gemini key), whatever the account says.
     var ownRealtimeKey = false
+    var jaxAvailable = false
 
     static func current(settings: OpenClickyShellSettings = OpenClickyConfiguration.settings, defaults: UserDefaults = .standard) -> AccountCapabilities {
         let signedIn = !settings.token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         return AccountCapabilities(
             kind: kind(ownOpenAIKey: OpenClickyConfiguration.usesOwnKeys(settings), signedIn: signedIn,
                        plan: defaults.string(forKey: AccountProfileStore.planKey)),
-            ownRealtimeKey: RealtimeVoiceProvider.hasOwnKey(ProviderCredentials(settings: settings)))
+            ownRealtimeKey: RealtimeVoiceProvider.hasOwnKey(ProviderCredentials(settings: settings)),
+            jaxAvailable: settings.workEngine != "codex")
     }
 
     /// An own OpenAI key always means own keys; no token means signed out; otherwise the backend's
@@ -40,11 +42,11 @@ struct AccountCapabilities: Equatable {
 
     /// Fast voice and hands-free: own keys (OpenAI, or an account on its own keys), or a Gemini key.
     var usesRealtime: Bool { kind == .ownKeys || ownRealtimeKey }
-    var usesAgent: Bool { kind == .ownKeys }
+    var usesAgent: Bool { jaxAvailable || kind == .ownKeys }
     var hearsOnDevice: Bool { kind != .ownKeys }
     var polishPath: String { kind == .ownKeys ? "/v1/chat/completions" : "/v1/polish" }
     /// The Agents tab's line under a disabled composer; signed out has nothing to explain.
-    var agentUnavailableHint: String? { kind == .account ? "agent tasks need your own key for now." : nil }
+    var agentUnavailableHint: String? { !jaxAvailable && kind == .account ? "agent tasks need your own key for now." : nil }
     /// At most two screenshots go with an account's question (the backend refuses more).
     var maxAskScreens: Int? { kind == .account ? 2 : nil }
 }

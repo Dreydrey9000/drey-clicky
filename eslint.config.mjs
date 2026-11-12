@@ -17,6 +17,7 @@ export default tseslint.config(
     // Build output, dependencies, and the Swift side (SwiftLint's job, see .swiftlint.yml).
     ignores: [
       "**/dist/**",
+      "**/.build/**",
       "**/node_modules/**",
       ".claude/**",
       "macos/**",

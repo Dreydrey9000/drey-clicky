@@ -3,7 +3,7 @@
 //  OpenClicky
 //
 //  OpenClicky integration: where the backend lives, the user's token, and how to
-//  run the `openclicky` CLI. Read from ~/.openclicky/shell.json (shared with the
+//  run the `openclicky` CLI. Read from ~/.drey-clicky/shell.json (shared with the
 //  minimal OpenClickyShell) with environment overrides. The app never holds
 //  provider keys — only the user's OpenClicky token, which the backend verifies.
 //
@@ -13,17 +13,19 @@ import Foundation
 
 struct OpenClickyShellSettings: Codable {
     /// Command used to run the CLI, e.g. ["openclicky"] or ["node", "/path/to/openclicky/agent/dist/cli.js"].
-    var cliCommand: [String] = ["openclicky"]
+    var cliCommand: [String] = ["drey-clicky"]
+    /// Existing Jax profile by default. Set to "codex" for the upstream code engine.
+    var workEngine: String? = "jax"
     /// The hosted backend by default (invite accounts and bring-your-own-key both go there); a
     /// self-hosted backend is one line in shell.json (`http://localhost:8787`).
     var backendUrl: String = OpenClickyConfiguration.hostedBackendURL
     var token: String = ""
     /// Working directory for agent runs (created on demand).
-    var workspace: String = NSString(string: "~/OpenClicky").expandingTildeInPath
+    var workspace: String = NSString(string: "~/DreyClicky").expandingTildeInPath
     var model: String = ""
     var voiceSeconds: Int = 5
     /// "openai" (via the OpenClicky backend, default), "assemblyai" (needs ASSEMBLYAI_API_KEY on the backend), or "apple".
-    var transcriptionProvider: String? = nil
+    var transcriptionProvider: String? = "apple"
     /// The language OpenClicky speaks and transcribes, as a language code ("en", "hi"). Unset is
     /// English. See ReplyLanguage.swift for why it is one fixed language and not "follow the user".
     var language: String? = nil
@@ -106,6 +108,7 @@ extension OpenClickyShellSettings {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let defaults = OpenClickyShellSettings()
         cliCommand = try container.decodeIfPresent([String].self, forKey: .cliCommand) ?? defaults.cliCommand
+        workEngine = try container.decodeIfPresent(String.self, forKey: .workEngine) ?? defaults.workEngine
         backendUrl = try container.decodeIfPresent(String.self, forKey: .backendUrl) ?? defaults.backendUrl
         token = try container.decodeIfPresent(String.self, forKey: .token) ?? defaults.token
         workspace = try container.decodeIfPresent(String.self, forKey: .workspace) ?? defaults.workspace
@@ -159,7 +162,8 @@ enum OpenClickyConfiguration {
         guard connectorsEnabled, let url = settings.composioMcpUrl, !url.isEmpty else { return nil }
         return url
     }
-    static let settingsFileURL = URL(fileURLWithPath: NSString(string: "~/.openclicky/shell.json").expandingTildeInPath)
+    static let settingsFileURL = URL(fileURLWithPath: NSString(string: "~/.drey-clicky/shell.json").expandingTildeInPath)
+    static var usesJax: Bool { settings.workEngine != "codex" }
 
     private(set) static var settings: OpenClickyShellSettings = load()
 
@@ -278,7 +282,7 @@ enum OpenClickyConfiguration {
     static let settingsFileUnreadableNotification = Notification.Name("openClickySettingsFileUnreadable")
 
     nonisolated static func unreadableSettingsFileSentence(reason: String) -> String {
-        "your settings file (~/.openclicky/shell.json) has a mistake in it: \(reason). openclicky won't change it until it's fixed."
+        "your settings file (~/.drey-clicky/shell.json) has a mistake in it: \(reason). openclicky won't change it until it's fixed."
     }
 
     /// Logs and shows the problem once per distinct problem (every refused write would repeat it).
@@ -371,7 +375,7 @@ enum OpenClickyConfiguration {
     /// write. That "unconditionally" matters: an existing file from before this function existed
     /// (or one loosened by some other tool) gets tightened on its very next write, not only on
     /// first creation. Pulled out as a pure, injectable helper so it can be exercised against a
-    /// temp directory in tests instead of the user's real `~/.openclicky`.
+    /// temp directory in tests instead of the user's real `~/.drey-clicky`.
     static func writeShellSettingsData(
         _ data: Data,
         toFileAt fileURL: URL,
@@ -427,7 +431,7 @@ enum OpenClickyConfiguration {
     nonisolated static func isConfigured(_ shellSettings: OpenClickyShellSettings) -> Bool {
         let credentials = ProviderCredentials(settings: shellSettings)
         // An account, an OpenAI key (it also covers speech and dictation), or anything that can answer.
-        return credentials.accountToken != nil || credentials.openAIKey != nil || !credentials.answerSourcesInOrder.isEmpty
+        return shellSettings.workEngine != "codex" || credentials.accountToken != nil || credentials.openAIKey != nil || !credentials.answerSourcesInOrder.isEmpty
     }
 
     /// Where cua-driver is, mirroring the CLI's own precedence (`resolveCuaDriverBin` in
@@ -477,7 +481,7 @@ enum OpenClickyConfiguration {
         if let override = environment["OPENCLICKY_USER_SKILLS_DIR"], !override.isEmpty {
             return URL(fileURLWithPath: NSString(string: override).expandingTildeInPath, isDirectory: true)
         }
-        return URL(fileURLWithPath: NSString(string: "~/.openclicky/skills").expandingTildeInPath, isDirectory: true)
+        return URL(fileURLWithPath: NSString(string: "~/.drey-clicky/skills").expandingTildeInPath, isDirectory: true)
     }
 
     /// The app-teaching skills inside the app (`Contents/Resources/app-skills`), copied from the
@@ -487,7 +491,7 @@ enum OpenClickyConfiguration {
     }
 
     /// App-teaching skills (`app-skills/` in the checkout): `appSkillsPath` from shell.json, else derived from
-    /// the CLI path (`…/agent/dist/cli.js` → `…/app-skills`), else `~/.openclicky/app-skills`.
+    /// the CLI path (`…/agent/dist/cli.js` → `…/app-skills`), else `~/.drey-clicky/app-skills`.
     static var appSkillsDirectory: URL {
         if let configured = settings.appSkillsPath?.trimmingCharacters(in: .whitespacesAndNewlines), !configured.isEmpty {
             return URL(fileURLWithPath: NSString(string: configured).expandingTildeInPath, isDirectory: true)
@@ -499,7 +503,7 @@ enum OpenClickyConfiguration {
             let candidate = root.appendingPathComponent("app-skills", isDirectory: true)
             if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
         }
-        return URL(fileURLWithPath: NSString(string: "~/.openclicky/app-skills").expandingTildeInPath, isDirectory: true)
+        return URL(fileURLWithPath: NSString(string: "~/.drey-clicky/app-skills").expandingTildeInPath, isDirectory: true)
     }
 
     // MARK: - Bring your own key
@@ -531,6 +535,7 @@ enum OpenClickyConfiguration {
 
     static func cliProcessEnvironment(from settings: OpenClickyShellSettings) -> [String: String] {
         var environment = ProcessInfo.processInfo.environment
+        environment["DREY_CLICKY_ENGINE"] = settings.workEngine == "codex" ? "codex" : "jax"
         var backendUrl = settings.backendUrl.trimmingCharacters(in: .whitespacesAndNewlines)
         while backendUrl.hasSuffix("/") { backendUrl.removeLast() }
         environment["BACKEND_URL"] = backendUrl.isEmpty ? hostedBackendURL : backendUrl

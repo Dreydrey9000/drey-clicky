@@ -1,0 +1,36 @@
+{
+  "label": "after",
+  "node": "v22.22.3",
+  "scenario": "loopback gate response delayed 4000 ms",
+  "samples": [
+    {
+      "milliseconds": 2503.03,
+      "gated": false,
+      "lane": "ask"
+    },
+    {
+      "milliseconds": 2501.76,
+      "gated": false,
+      "lane": "ask"
+    },
+    {
+      "milliseconds": 2502.66,
+      "gated": false,
+      "lane": "ask"
+    },
+    {
+      "milliseconds": 2501.41,
+      "gated": false,
+      "lane": "ask"
+    },
+    {
+      "milliseconds": 2504.27,
+      "gated": false,
+      "lane": "ask"
+    }
+  ],
+  "medianMs": 2502.66,
+  "p95Ms": 2504.27,
+  "calls": 5,
+  "abortedResponses": 5
+}

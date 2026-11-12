@@ -14,11 +14,15 @@ import { recordAudio, transcribe, resolveMicDevice } from "./audio.js";
 import { RealtimeSession, defaultMicCommand } from "./realtime.js";
 import { listLibrary, setActive } from "./skillsLibrary.js";
 import { spawnTarget } from "./winSpawn.js";
+import fs from "node:fs/promises";
+import { runJaxMcp, withJaxClient } from "./jaxMcp.js";
+import { taskPrompt } from "./taskContext.js";
+import { saveJaxHistory, listJaxHistory, readJaxHistory, archiveJaxHistory } from "./jaxHistory.js";
 
 const program = new Command();
 program
-  .name("openclicky")
-  .description("OpenClicky headless agent: run tasks through Codex via the OpenClicky backend, or ask quick questions.")
+  .name("drey-clicky")
+  .description("Talk to your Mac. Jax does the work. OpenClicky-derived voice and screen assistant.")
   .version(readVersion());
 
 /**
@@ -65,6 +69,8 @@ const withCommonOptions = (cmd: Command) =>
     .option("--backend-url <url>", "OpenClicky backend URL (env BACKEND_URL; default https://api.openclicky.org, the hosted backend — point it at http://localhost:8787 to use your own)")
     .option("--token <token>", "Supabase JWT or session token (env OPENCLICKY_TOKEN)")
     .option("--image <path>", "attach a local screenshot/image")
+    .option("--selected-text-file <path>", "attach selected text as untrusted evidence (UTF-8 file, up to 20,000 characters)")
+    .option("--engine <engine>", "work engine: jax (default) or codex; never automatically replay a task on another engine")
     .option("--screenshot", "capture the screen now (macOS screencapture, Windows, Linux grim/gnome-screenshot/spectacle/scrot/import) and attach it")
     .option("--json", "print the result as JSON")
     .option("--events", "stream JSON Lines events to stdout (for UIs)")
@@ -153,6 +159,32 @@ async function promptApproval(req: ApprovalRequest): Promise<ApprovalDecision> {
 }
 
 async function runAgent(cfg: AgentConfig, task: string, opts: Record<string, any>): Promise<RunResult> {
+  const engine = opts.engine ?? process.env.DREY_CLICKY_ENGINE ?? "jax";
+  if (engine !== "jax" && engine !== "codex") fail("--engine must be jax or codex");
+  const selectedText = opts.selectedTextFile ? await fs.readFile(String(opts.selectedTextFile), "utf8") : undefined;
+  if (engine === "codex") return runCodex(cfg, selectedText ? taskPrompt(task, selectedText) : task, opts);
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  process.once("SIGINT", cancel);
+  process.once("SIGTERM", cancel);
+  let imagePath: string | undefined;
+  try {
+    imagePath = resolveImage(opts);
+    const result = await runJaxMcp({ task, workspace: cfg.workspace, imagePath, selectedText, threadId: opts.thread }, { signal: controller.signal, onEvent: note });
+    try { await saveJaxHistory(task, cfg.workspace, result); }
+    catch { note("task completed; local history could not be saved. The result below is still valid."); }
+    if (opts.events) emit({ type: "result", ...result });
+    else if (opts.json) process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+    else process.stdout.write(result.finalMessage + "\n");
+    return result;
+  } finally {
+    process.removeListener("SIGINT", cancel);
+    process.removeListener("SIGTERM", cancel);
+    if (opts.screenshot && imagePath) await fs.rm(imagePath, { force: true }).catch(() => undefined);
+  }
+}
+
+async function runCodex(cfg: AgentConfig, task: string, opts: Record<string, any>): Promise<RunResult> {
   if (!canCallBackend(cfg)) fail(MISSING_CREDENTIALS);
   let streamed = false;
   const agent = new CodexAgent(cfg, {
@@ -188,6 +220,7 @@ async function runAgent(cfg: AgentConfig, task: string, opts: Record<string, any
 }
 
 async function runAsk(cfg: AgentConfig, question: string, opts: Record<string, any>): Promise<string> {
+  if ((opts.engine ?? process.env.DREY_CLICKY_ENGINE ?? "jax") === "jax") return (await runAgent(cfg, question, opts)).finalMessage;
   let streamed = false;
   const answer = await ask(cfg, question, {
     imagePath: resolveImage(opts),
@@ -206,7 +239,7 @@ async function runAsk(cfg: AgentConfig, question: string, opts: Record<string, a
   return answer;
 }
 
-withRunOptions(withCommonOptions(program.command("run").description("full agent run (spawns Codex on a thread)").argument("<task...>", "what to do"))).action(
+withRunOptions(withCommonOptions(program.command("run").description("full task through Jax MCP; use --engine codex for a code job").argument("<task...>", "what to do"))).action(
   async (parts: string[], opts) => {
     try {
       await runAgent(configFrom(opts), parts.join(" "), opts);
@@ -216,7 +249,18 @@ withRunOptions(withCommonOptions(program.command("run").description("full agent 
   },
 );
 
-withCommonOptions(program.command("ask").description("quick answer through the backend (no agent spawn)").argument("<question...>", "the question")).action(
+program.command("doctor").description("Check the Jax MCP task bridge without calling a model or changing your apps").option("--json", "print JSON").action(async (opts) => {
+  try {
+    const result = await withJaxClient(async client => {
+      const { tools } = await client.listTools({}, { timeout: 10_000 });
+      return { mcpConnected: true, taskToolAvailable: tools.some(tool => tool.name === "jax_run"), tools: tools.map(tool => tool.name), note: "Handshake only; provider, microphone, screen and action permissions require a separate live test." };
+    });
+    process.stdout.write(JSON.stringify(result, null, opts.json ? undefined : 2) + "\n");
+    if (!result.taskToolAvailable) fail("MCP connected, but no jax_run task tool is available.");
+  } catch (error) { propagate(error); }
+});
+
+withCommonOptions(program.command("ask").description("ask Jax; use --engine codex for the original provider answer lane").argument("<question...>", "the question")).action(
   async (parts: string[], opts) => {
     try {
       await runAsk(configFrom(opts), parts.join(" "), opts);
@@ -374,7 +418,7 @@ program
     }
   });
 
-const threads = program.command("threads").description("inspect OpenClicky's Codex threads (isolated CODEX_HOME)");
+const threads = program.command("threads").description("inspect local Jax conversations, or Codex threads with DREY_CLICKY_ENGINE=codex");
 const withThreadAgent = async <T>(opts: Record<string, any>, fn: (agent: CodexAgent) => Promise<T>): Promise<T> => {
   const agent = new CodexAgent(configFrom(opts));
   try {
@@ -394,7 +438,9 @@ threads
   .option("--verbose")
   .action(async (opts) => {
     try {
-      const list = await withThreadAgent(opts, (a) => a.listThreads(Number(opts.limit)));
+      const list = process.env.DREY_CLICKY_ENGINE === "codex"
+        ? await withThreadAgent(opts, (a) => a.listThreads(Number(opts.limit)))
+        : await listJaxHistory(Number(opts.limit));
       if (opts.json) return void process.stdout.write(JSON.stringify(list, null, 2) + "\n");
       if (!list.length) return void process.stdout.write("no threads yet\n");
       for (const t of list) process.stdout.write(`${t.id}  ${fmtTime(t.updatedAt)}  ${t.status.padEnd(9)}  ${t.cwd}\n    ${t.preview.slice(0, 100)}\n`);
@@ -411,7 +457,7 @@ threads
   .option("--verbose")
   .action(async (id: string, opts) => {
     try {
-      const r = await withThreadAgent(opts, (a) => a.readThread(id));
+      const r = id.startsWith("jax:") ? await readJaxHistory(id) : await withThreadAgent(opts, (a) => a.readThread(id));
       if (opts.json) return void process.stdout.write(JSON.stringify(r, null, 2) + "\n");
       process.stdout.write(`thread ${r.thread.id}  cwd ${r.thread.cwd}  updated ${fmtTime(r.thread.updatedAt)}\n`);
       for (const t of r.turns) {
@@ -432,7 +478,8 @@ threads
   .option("--verbose")
   .action(async (id: string, opts) => {
     try {
-      await withThreadAgent(opts, (a) => a.archiveThread(id));
+      if (id.startsWith("jax:")) await archiveJaxHistory(id);
+      else await withThreadAgent(opts, (a) => a.archiveThread(id));
       process.stdout.write(`archived ${id}\n`);
     } catch (e) {
       propagate(e);

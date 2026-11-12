@@ -201,7 +201,7 @@ final class CompanionManager: ObservableObject {
     private var didGreetRealtime = false
     private var didConfigureRealtimeCallbacks = false
 
-    private var usesRealtimeVoice: Bool { isRealtimeVoiceEnabled && OpenClickyConfiguration.isConfigured && AccountCapabilities.current().usesRealtime }
+    private var usesRealtimeVoice: Bool { !OpenClickyConfiguration.usesJax && isRealtimeVoiceEnabled && OpenClickyConfiguration.isConfigured && AccountCapabilities.current().usesRealtime }
 
     func setRealtimeVoiceEnabled(_ enabled: Bool) {
         isRealtimeVoiceEnabled = enabled
@@ -511,7 +511,7 @@ final class CompanionManager: ObservableObject {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty, OpenClickyConfiguration.isConfigured else { return }
         // An account has no agent: the backend would refuse it with not_on_plan, so say that plainly.
-        guard AccountCapabilities.current().usesAgent else {
+        guard OpenClickyConfiguration.usesJax || AccountCapabilities.current().usesAgent else {
             speakWithSystemVoice(AccountLimitError.notOnPlan.message)
             return
         }
@@ -1743,7 +1743,7 @@ final class CompanionManager: ObservableObject {
                 // Captured once: a second look costs up to 2.5 s with a Chromium app in front.
                 var writingTargetWasCaptured = false
                 var pauseAlreadyWaitedOut = false
-                if !isGuidedStepContinuation, dictationSettings.answerSimpleRequestsOnThisMac, let localAskRung {
+                if !OpenClickyConfiguration.usesJax, !isGuidedStepContinuation, dictationSettings.answerSimpleRequestsOnThisMac, let localAskRung {
                     switch LocalAskRung.gate(transcript: transcript, replyLanguageCode: ReplyLanguage.currentCode) {
                     case .skip(let reason):
                         AppLog.append("local rung: gate skipped (\(reason))")
@@ -1820,11 +1820,11 @@ final class CompanionManager: ObservableObject {
                 // (teacher lane below: Claude + pointing) or real work (agent lane: Codex thread).
                 // The agent lane needs the openclicky tool (not in the downloaded app); without it the
                 // quick actions below are offered to whoever answers instead.
-                let agentLaneRuns = isAgentModeEnabled && OpenClickyConfiguration.isConfigured
-                    && AccountCapabilities.current().usesAgent && OpenClickyAgentClient.isToolInstalled
+                let agentLaneRuns = OpenClickyConfiguration.usesJax || (isAgentModeEnabled && OpenClickyConfiguration.isConfigured
+                    && AccountCapabilities.current().usesAgent && OpenClickyAgentClient.isToolInstalled)
                 if agentLaneRuns {
                     agentActivityText = "deciding…"
-                    let lane = await openClickyAgentClient.classifyLane(for: transcript)
+                    let lane = OpenClickyConfiguration.usesJax ? "agent" : await openClickyAgentClient.classifyLane(for: transcript)
                     guard !Task.isCancelled else { return }
                     print("🧭 OpenClicky gate: \(lane)")
                     if lane == "agent" {
@@ -2494,6 +2494,8 @@ final class CompanionManager: ObservableObject {
     /// the result card, and return the sentence to speak.
     private func performAgentTask(transcript: String, screenCaptures: [CompanionScreenCapture]) async throws -> String {
         var screenshotPath: String?
+        let selectedText = SelectedTextReader.currentSelection()
+        defer { if let screenshotPath { try? FileManager.default.removeItem(atPath: screenshotPath) } }
         if let cursorScreenCapture = screenCaptures.first(where: { $0.isCursorScreen }) ?? screenCaptures.first {
             let screenshotURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("openclicky-\(UUID().uuidString).jpg")
@@ -2503,11 +2505,12 @@ final class CompanionManager: ObservableObject {
         }
 
         agentActivityText = "starting agent…"
-        print("🤖 OpenClicky agent lane: \(transcript)")
+        print("🤖 Drey Clicky: starting agent task with screen context")
         let result = try await openClickyAgentClient.runAgent(
             task: transcript,
             screenshotPath: screenshotPath,
             threadId: lastAgentThreadId,
+            selectedText: selectedText,
             onEvent: { [weak self] milestone in
                 self?.agentActivityText = milestone
             }
@@ -2527,7 +2530,7 @@ final class CompanionManager: ObservableObject {
             finishedAt: Date()
         )
 
-        var spokenText = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var spokenText = (result.spokenSummary ?? result.text).trimmingCharacters(in: .whitespacesAndNewlines)
         if spokenText.isEmpty {
             spokenText = result.status == "completed"
                 ? "done."

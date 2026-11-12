@@ -11,6 +11,8 @@ import AVFoundation
 import ServiceManagement
 import SwiftUI
 import Sparkle
+import Speech
+import ApplicationServices
 
 /// The entry point. The Kokoro and Parakeet helpers (the same binary, started by the app with a flag) branch
 /// off here, before SwiftUI creates the app delegate and with it the island, the menu bar item and
@@ -54,6 +56,20 @@ final class CompanionAppDelegate: NSObject, NSApplicationDelegate {
         // GUI, permissions, or screen capture. Used by scripted builds:
         //   OpenClicky.app/Contents/MacOS/OpenClicky --openclicky-smoke-run "create a file called x.txt containing 'y'"
         let launchArguments = CommandLine.arguments
+        if launchArguments.contains("--drey-clicky-diagnostics") {
+            let status: [String: Any] = [
+                "bundleIdentifier": Bundle.main.bundleIdentifier ?? "unknown",
+                "accessibility": AXIsProcessTrusted(),
+                "screenRecording": CGPreflightScreenCaptureAccess(),
+                "microphoneStatus": AVCaptureDevice.authorizationStatus(for: .audio).rawValue,
+                "speechStatus": SFSpeechRecognizer.authorizationStatus().rawValue,
+                "workEngine": OpenClickyConfiguration.usesJax ? "jax" : "codex",
+                "cliAvailable": OpenClickyAgentClient.isToolInstalled
+            ]
+            if let data = try? JSONSerialization.data(withJSONObject: status, options: [.sortedKeys]),
+               let text = String(data: data, encoding: .utf8) { print(text) }
+            exit(0)
+        }
         if let argumentIndex = launchArguments.firstIndex(of: "--openclicky-smoke-run"), argumentIndex + 1 < launchArguments.count {
             let transcript = launchArguments[argumentIndex + 1]
             Task { @MainActor in
@@ -713,6 +729,8 @@ final class CompanionAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func startSparkleUpdater() {
+        // A fork must never replace itself with an upstream binary or reuse upstream signing keys.
+        guard Bundle.main.object(forInfoDictionaryKey: "DreyClickyUpdatesEnabled") as? Bool == true else { return }
         let updaterController = SPUStandardUpdaterController(
             startingUpdater: false,
             updaterDelegate: nil,

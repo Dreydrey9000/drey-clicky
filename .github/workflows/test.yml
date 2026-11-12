@@ -19,6 +19,8 @@ jobs:
       # were never checked — which is how a test importing a type `jose` had already removed, and
       # test helpers minting JWTs that no Supabase would issue, both went unnoticed.
       - run: npm run typecheck
+      - name: Drey Clicky fork and UI contract
+        run: node scripts/check-drey-clicky.mjs
       # Errors only. The 371 warnings are the backlog the linter was added to make visible, not a
       # reason to fail the build; `--max-warnings` stays off until that list is worked down.
       - run: npm run lint

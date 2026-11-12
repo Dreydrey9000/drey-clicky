@@ -14,7 +14,7 @@ import Foundation
 final class NotesStore: ObservableObject {
     static let shared = NotesStore(fileURL: NotesStore.defaultFileURL)
 
-    /// ~/Library/Application Support/OpenClicky/Notes/notes.txt
+    /// ~/Library/Application Support/DreyClicky/Notes/notes.txt
     nonisolated static var defaultFileURL: URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")

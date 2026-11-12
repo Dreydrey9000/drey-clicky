@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "bin": {
+    "drey-clicky": "dist/cli.js",
+    "drey-clicky-jax-mcp": "dist/jaxServer.js",
     "openclicky": "dist/cli.js"
   },
   "scripts": {
@@ -13,6 +15,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
     "commander": "^15.0.0"
   },
   "devDependencies": {

@@ -13,6 +13,15 @@ export interface GateDecision {
   gated: boolean;
 }
 
+/** A slow classification must not hold the actual request indefinitely. */
+export const DEFAULT_GATE_TIMEOUT_MS = 2500;
+
+interface GateOptions {
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}
+
 export const GATE_SYSTEM_PROMPT = `You are OpenClicky's launch gate. Classify the user's request into exactly one lane:
 - "ask": a question, explanation, opinion, translation, summary of provided text, or anything answerable in a short spoken reply with no files, tools, apps, or web work.
 - "agent": anything that requires doing work: creating/editing files or code, running commands, research with sources, using apps or integrations, multi-step tasks, or anything referring to "my" files/repo/project.
@@ -38,15 +47,25 @@ export function heuristicLane(text: string): Lane {
   return asksLike && !workLike ? "ask" : "agent";
 }
 
-export async function gate(cfg: AgentConfig, text: string, opts: { fetchImpl?: typeof fetch } = {}): Promise<GateDecision> {
+export async function gate(cfg: AgentConfig, text: string, opts: GateOptions = {}): Promise<GateDecision> {
+  opts.signal?.throwIfAborted();
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_GATE_TIMEOUT_MS;
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 60_000) {
+    throw new RangeError("gate timeoutMs must be an integer from 1 to 60000");
+  }
   const f = opts.fetchImpl ?? fetch;
   // Claude decides the lane: the person's Anthropic key straight to Anthropic, else the backend on their token.
   const route = anthropicRoute(cfg, "/v1/messages", { "content-type": "application/json" });
   if (!route) return { lane: heuristicLane(text), reason: "no anthropic key or token; heuristic", gated: false };
+  const deadline = new AbortController();
+  const timer = setTimeout(() => deadline.abort(new DOMException("Gate deadline exceeded", "TimeoutError")), timeoutMs);
+  timer.unref();
+  const signal = opts.signal ? AbortSignal.any([deadline.signal, opts.signal]) : deadline.signal;
   try {
     const res = await f(route.url, {
       method: "POST",
       headers: route.headers,
+      signal,
       body: JSON.stringify({
         model: route.direct ? DIRECT_DEFAULTS.anthropicModel : "default",
         max_tokens: 80,
@@ -61,6 +80,11 @@ export async function gate(cfg: AgentConfig, text: string, opts: { fetchImpl?: t
     if (!parsed) return { lane: heuristicLane(text), reason: "gate reply unparseable; heuristic", gated: false };
     return { ...parsed, gated: true };
   } catch (e) {
+    // User cancellation must not fall through into a new agent or ask operation.
+    if (opts.signal?.aborted) throw opts.signal.reason;
+    if (deadline.signal.aborted) return { lane: heuristicLane(text), reason: `gate timed out after ${timeoutMs} ms; heuristic`, gated: false };
     return { lane: heuristicLane(text), reason: `gate error (${(e as Error).message}); heuristic`, gated: false };
+  } finally {
+    clearTimeout(timer);
   }
 }
