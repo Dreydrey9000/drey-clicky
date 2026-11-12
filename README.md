@@ -59,6 +59,7 @@ The gauntlet runs types, lint, source safety, tests, builds, the fork checks and
 - [Verification record](docs/VERIFICATION.md)
 - [Optional Flow/Omi voice setup and boundaries](docs/VOICE-CONNECTORS.md)
 - [VoiceOS, OpenClicky and REA comparison](docs/COMPARISON.md)
+- [VoiceOS/Jax trial setup](docs/VOICEOS-JAX-SETUP.md) and [paired comparison worksheet](docs/VOICEOS-BENCHMARK.csv)
 - [Measured QuickSilver routing improvement](docs/performance/QUICKSILVER.md) and [artifact scan improvement](docs/performance/QUICKSILVER-ARTIFACTS.md)
 - [UI interaction standard](docs/UI-STANDARD.md)
 - [Release and plugin plan](docs/RELEASE.md)

@@ -32,4 +32,6 @@ The useful design principle is evidence-backed inspection before reconstruction.
 
 ## Same-task benchmark still required
 
+The [VoiceOS/Jax setup guide](VOICEOS-JAX-SETUP.md) prepares the existing local stdio bridge for VoiceOS's documented Custom Integrations page. The [blank comparison worksheet](VOICEOS-BENCHMARK.csv) records paired tasks without claiming unrun results. A launcher handshake is separate from an authenticated VoiceOS connection or context forwarding.
+
 Before calling this better overall: measure the same dictation, screen explanation, selected-text rewrite, calendar draft, code task, cancellation and failure-recovery cases on each app. Record successful completion, permission prompts, speech intelligibility, latency p50/p95, memory and battery impact. Fix the single worst measured bottleneck per pass. Do not invent competitor timings or count advertised features as executed tests.
